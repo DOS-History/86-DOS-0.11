@@ -2,7 +2,7 @@
 Full source code reconstruction of 86-DOS 0.11 - the earliest released version of the earliest operating system for the Intel x86 architecture.
 
 > [!IMPORTANT]
-> All 8086 assembly language source files in this repository should use the extension .A86; however, I have chosen to use the extension .ASM instead because GitHub does not detect .A86 files as assembly. To build the source code under CP/M or Cromemco CDOS, you must rename all .ASM files to .A86.
+> All 8086 assembly language source files in this repository use the extension `.A86`, because 86-DOS was originally assembled using the SCP Z80/8086 Cross Assembler running under Cromemco CDOS. To build 86-DOS under 86-DOS itself or MS-DOS, you would have to rename all `.A86` files to `.ASM`.
 
 ## Progress
 <img src="./.progress/boot.svg"> <img src="./.progress/bios.svg"> <img src="./.progress/kernel.svg"> <img src="./.progress/asm.svg"> <img src="./.progress/chess.svg"> <img src="./.progress/command.svg"> <img src="./.progress/edlin.svg"> <img src="./.progress/hex2bin.svg"> <img src="./.progress/rdcpm.svg"> <img src="./.progress/sys.svg"> <img src="./.progress/trans.svg">
