@@ -2,7 +2,11 @@
 ;   by Tim Paterson
 ; Runs on the 8086 under 86-DOS
 
+SYMWID:	EQU	10
 FCB:	EQU	5CH
+BUFSIZ:	EQU	128	;Source code buffer
+LSTBUFSIZ:EQU	BUFSIZ	;List file buffer
+HEXBUFSIZ:EQU	BUFSIZ	;Hex file buffer
 EOL:	EQU	13	;ASCII carriage return
 OBJECT:	EQU	100H	;DEFAULT "PUT" ADDRESS
 
@@ -456,7 +460,7 @@ GETVAL:
 ; UNDEF.
 
 	LAHF
-	XCHG	AX,BP
+	XCHG	AX,BP		;Flag is kept in BP
 	SAHF
 	PUSH	BX
 	MOV	BX,0
@@ -470,7 +474,7 @@ GETVAL:
 	JZ	PLSMNS
 	MOV	CH,'+'
 	PUSH	CX
-	JP	L045C
+	JP	OPERATE
 PLSMNS:
 	LAHF
 	XCHG	AH,AL
@@ -486,30 +490,26 @@ PLSMNS:
 	XCHG	AX,BP
 	SAHF
 	CALL	GETSYM
-L045C:
-	CMP	AL,1
-	JNZ	L0463
-	JMP	L0578
-L0463:
-	CMP	AL,0
-	JNZ	L046A
-	JMP	L0597
-L046A:
+OPERATE:
+	CMP	AL,CONST
+	JNZ	$+5
+	JMP	CVAL
+	CMP	AL,UNDEFID
+	JNZ	$+5
+	JMP	UVAL
 	CMP	AL,'"'
-	JNZ	L0471
-L046E:
-	JMP	L0648
-L0471:
+	JNZ	$+5
+STRINGJ:JMP	STRING
 	CMP	AL,"'"
-	JZ	L046E
-	CMP	AL,3
-	MOV	CL,14H
+	JZ	STRINGJ
+	CMP	AL,XREG		;Only 16-bit register may index
+	MOV	CL,20
 	JNZ	ERR2
 	LAHF
 	XCHG	AX,BP
 	SAHF
 	RCR	SI
-	TEST	AL,1
+	TEST	AL,1		;Check to see if indexing is OK
 	RCL	SI
 	MOV	CL,1
 	JZ	ERR2
@@ -518,194 +518,191 @@ L0471:
 	SAHF
 	MOV	AL,DL
 	MOV	CL,3
-	CMP	AL,3
-	JZ	L04C6
-	SUB	AL,5
-	JZ	L04D7
-	DEC	AL
+	CMP	AL,3		;Check for BX
+	JZ	BXJ
+	SUB	AL,5		;Check for BP
+	JZ	BPJ
+	DEC	AL		;Check for SI
 	MOV	CL,4
-	JZ	L04B5
-	DEC	AL
-	JZ	L04A6
-	MOV	CL,2
+	JZ	SIJ
+	DEC	AL		;Check for DI
+	JZ	DIJ
+	MOV	CL,2		;Invalid base/index register
 ERR2:	JMP	ERROR
-L04A6:
+DIJ:
 	LAHF
 	XCHG	AX,BP
 	SAHF
 	RCR	SI
-	TEST	AL,10H
+	TEST	AL,10H		;Check if already seen index register
 	RCL	SI
 	JNZ	ERR2
-	OR	AL,30H
-	JP	L04E4
-L04B5:
+	OR	AL,30H		;Flag seeing index register DI
+	JP	LPCHK
+SIJ:
 	LAHF
 	XCHG	AX,BP
 	SAHF
 	RCR	SI
-	TEST	AL,10H
+	TEST	AL,010H		;Check if already seen index register
 	RCL	SI
 	JNZ	ERR2
 	LAHF
-	OR	AL,10H
+	OR	AL,010H		;Flag seeing index register SI
 	SAHF
-	JP	L04E4
-L04C6:
+	JP	LPCHK
+BXJ:
 	LAHF
 	XCHG	AX,BP
 	SAHF
 	RCR	SI
-	TEST	AL,80H
+	TEST	AL,080H		;Check if already seen base register
 	RCL	SI
 	JNZ	ERR2
 	LAHF
-	OR	AL,80H
+	OR	AL,080H		;Flag seeing base register BX
 	SAHF
-	JP	L04E4
-L04D7:
+	JP	LPCHK
+BPJ:
 	LAHF
 	XCHG	AX,BP
 	SAHF
 	RCR	SI
-	TEST	AL,80H
+	TEST	AL,080H		;Check if already seen base register
 	RCL	SI
 	JNZ	ERR2
-	OR	AL,0C0H
-L04E4:
+	OR	AL,0C0H		;Flag seeing base register BP
+LPCHK:
 	LAHF
 	XCHG	AX,BP
 	SAHF
-	POP	AX
+	POP	AX		;Get operator
 	XCHG	AH,AL
 	SAHF
-	CMP	AL,'-'
+	CMP	AL,'-'		;Can't subtract a register
 	MOV	CL,5
 	JZ	ERR2
-L04F1:
+NEXTER:
 	LAHF
 	XCHG	AX,BP
 	SAHF
 	LAHF
-	OR	AL,4
+	OR	AL,4		;Flag that a term was processed
 	SAHF
 	LAHF
 	XCHG	AX,BP
 	SAHF
 	CALL	GETSYM
 	CMP	AL,'+'
-	JNZ	L0505
-L0502:
-	JMP	PLSMNS
-L0505:
+	JNZ	$+5
+PJ:	JMP	PLSMNS
 	CMP	AL,'-'
-	JZ	L0502
+	JZ	PJ
 	LAHF
 	XCHG	AX,BP
 	SAHF
 	MOV	CH,0
 	RCR	SI
-	TEST	AL,10H
+	TEST	AL,010H		;Test INDEX bit
 	RCL	SI
-	RCL	AL
-	JZ	NOIND
+	RCL	AL		;BASE bit (zero flag not affected)
+	JZ	NOIND		;Jump if not indexed, with BASE bit in carry
 	CMC
 	RCL	CH
-	RCL	AL
+	RCL	AL		;BP bit
 	RCL	CH
-	RCL	AL
-	RCL	CH
-L0523:
+	RCL	AL		;DI bit
+	RCL	CH		;The low 3 bits now have indexing mode
+MODE:
 	MOV	BX,[UNDEF]
 	MOV	AL,BH
 	OR	AL,BL
 	LAHF
-	OR	CH,80H
+	OR	CH,080H		;If undefined label, force 16-bit displacement
 	SAHF
-	JNZ	RET3
+	JNZ	RET
 	MOV	BX,[CON]
-	CALL	L055B
-	JNZ	RET3
+	CALL	SIGNEXT		;Check if 8-bit with sign extended
+	JNZ	RET		;If not, use 16-bit displacement
 	LAHF
-	AND	CH,7FH
+	AND	CH,07FH		;Reset 16-bit displacement
 	SAHF
 	LAHF
-	OR	CH,40H
+	OR	CH,040H		;Set 8-bit displacement
 	SAHF
 	MOV	AL,BH
 	OR	AL,BL
-	JNZ	RET3
+	JNZ	RET		;Use it if not zero displacement
 	MOV	AL,CH
-	AND	AL,7
+	AND	AL,7		;Specify no displacement
 	MOV	CH,AL
-	CMP	AL,6
-	JNZ	RET3
+	CMP	AL,6		;Check for BP+0 addressing mode
+	JNZ	RET
 	LAHF
-	OR	CH,40H
+	OR	CH,040H		;If BP+0, use 8-bit displacement
 	SAHF
-RET3:	RET
+	RET
 
-L055B:
+SIGNEXT:
 	MOV	AL,BH
 	OR	AL,AL
-	JZ	L0565
+	JZ	HIZERO
 	INC	AL
 	JNZ	RET
-L0565:
+HIZERO:
 	MOV	AL,BL
 	XOR	AL,BH
 	AND	AL,80H
 	RET
 
 NOIND:
-	MOV	CH,6
-	JNC	RET
-	RCL	AL
-	JC	L0523
-	INC	CH
-	JP	L0523
+	MOV	CH,6		;Try direct address mode
+	JNC	RET		;If no base register, that's right
+	RCL	AL		;Check BP bit
+	JC	MODE
+	INC	CH		;If not, must be BX
+	JP	MODE
 
-L0578:
+CVAL:
 	MOV	BX,[CON]
 	POP	AX
 	XCHG	AH,AL
 	SAHF
 	CMP	AL,'-'
-	JNZ	L058D
+	JNZ	ADDCON
 	SBB	BX,DX
-L0586:
+SETCON:
 	MOV	[CON],BX
-	JMP	L04F1
-L058D:
+	JMP	NEXTER
+ADDCON:
 	LAHF
 	ADD	BX,DX
 	RCR	SI
 	SAHF
 	RCL	SI
-	JP	L0586
+	JP	SETCON
 
-L0597:
+UVAL:
 	LAHF
 	XCHG	AX,BP
 	SAHF
 	MOV	CL,6
 	RCR	SI
-	TEST	AL,8
+	TEST	AL,008H		;Check if undefined label has been seen
 	RCL	SI
-	JNZ	L05B5
+	JNZ	ERR30
 	LAHF
-	OR	AL,8
+	OR	AL,008H		;Flag seeing undefined label
 	XCHG	AX,BP
 	SAHF
 	MOV	[UNDEF],BX
 	POP	AX
 	XCHG	AH,AL
 	SAHF
-	CMP	AL,'+'
+	CMP	AL,'+'		;Undefined label may only be added
 	MOV	CL,5
-L05B5:
-	JNZ	ERR3
-	JMP	L04F1
+ERR30:	JNZ	ERR3
+	JMP	NEXTER
 
 
 GETSYM:
@@ -720,10 +717,8 @@ GETSYM:
 ; AL=SYM=2,3,4  8-bit register, 16-bit register, or segment register,
 ; respectively. DL has register number.
 ;
-; AL=SYM=5  A mode flag (such as "B" for byte operation). Type of flag in DL
-; and also stored in FLAG: -1=no flags, 0=B, 1=W, 2=S, 3=L, 4=T.
-;
-; AL=SYM=6  8087 floating point register, ST(n) or ST. DL has register number.
+; AL=SYM=5  A mode flag (such as "B" for byte operation). Also stored in
+; appropriate memory location--FLAG or LONG.
 ;
 ; All other values are the ASCII code of the character. Note that this may
 ; never be a letter or number.
@@ -800,53 +795,51 @@ ERR3:	JMP	ERROR
 	XCHG	DX,BX
 	RET
 
-L0648:
+STRING:
 	MOV	CH,AL
 	MOV	AL,[CHR]
 	CMP	AL,CH
-	MOV	CL,'#'
+	MOV	CL,35
 	MOV	DL,AL
 	MOV	DH,0
-	JNZ	L065A
-	CALL	L0690
-L065A:
-	CALL	L0698
+	JNZ	L0003
+	CALL	ZERLEN
+L0003:	
+	CALL	GETCHR
 	LAHF
 	XCHG	AX,BP
 	SAHF
-	MOV	CL,'%'
-	TEST	AL,2
+	MOV	CL,37
+	TEST	AL,002H
 	JZ	ERR3
-	TEST	AL,4
-	MOV	CL,'&'
+	TEST	AL,004H
+	MOV	CL,38
 	JNZ	ERR3
 	LAHF
 	XCHG	AX,BP
 	SAHF
-L066F:
+STRGDAT:
 	MOV	AL,DL
-	CMP	AL,13
-	MOV	CL,"'"
+	CMP	AL,EOL
+	MOV	CL,39
 	JZ	ERR3
 	CALL	PUT
 	MOV	AL,[DATSIZ]
 	OR	AL,AL
-	JNZ	L0686
+	JNZ	BYTSIZ
 	MOV	AL,DH
 	CALL	PUT
-L0686:
+BYTSIZ:
 	MOV	AL,[CHR]
 	MOV	DL,AL
-	CALL	L0698
-	JP	L066F
-
-L0690:
+	CALL	GETCHR
+	JP	STRGDAT
+ZERLEN:
 	CALL	NEXTCHR
 	CMP	AL,CH
 	JNZ	ERR3
 	RET
-
-L0698:
+GETCHR:
 	CALL	NEXTCHR
 	CMP	AL,CH
 	JNZ	RET
@@ -854,7 +847,7 @@ L0698:
 	CMP	AL,CH
 	JZ	RET
 	POP	BX
-	JMP	L0578
+	JMP	CVAL
 
 HEX:
 	MOV	DX,ID
@@ -931,14 +924,14 @@ LETTER:
 	MOV	AL,[ID]
 	CMP	AL,'l'
 	MOV	CL,0
-	MOV	DX,L1A98
-	JZ	SAVFLG
+	MOV	DX,LONG
+	JZ	BWFLAG
 	CMP	AL,'b'
 	MOV	DX,FLAG
-	JZ	SAVFLG
+	JZ	BWFLAG
 	CMP	AL,'w'
 	MOV	CL,1
-	JZ	SAVFLG
+	JZ	BWFLAG
 	XOR	AL,AL
 NOFLG:
 	DEC	AL
@@ -954,15 +947,14 @@ SYMSAV:
 	MOV	[SYM],AL
 	RET
 
-SAVFLG:
+BWFLAG:
 	XCHG	DX,BX
 	MOV	AL,[BX]
 	INC	AL
 	MOV	[BX],CL
 	MOV	CL,32
-	JZ	L0760
+	JZ	$+5
 	JMP	ERROR
-L0760:
 	MOV	AL,5
 	JP	SYMSAV
 
@@ -1098,7 +1090,7 @@ CHKRET:
 	JZ	ALLRET
 	MOV	BX,[PC]
 	SBB	BX,DX
-	CALL	L055B
+	CALL	SIGNEXT
 	MOV	AL,1
 	JZ	RET
 ALLRET:
@@ -1249,7 +1241,7 @@ GETLAB:
 	MOV	[LABPT],BX
 	MOV	AL,-1
 	MOV	[FLAG],AL
-	MOV	[L1A98],AL
+	MOV	[LONG],AL
 	MOV	DH,0
 	MOV	AL,[CHR]
 	CMP	AL,' '+1
@@ -1343,7 +1335,7 @@ ASMLIN:
 FINDOP:
 	MOV	CH,CL
 	LAHF
-	XCHG	AX,BP		;Save count of opcodes in BP
+	XCHG	AX,BP
 	SAHF
 	MOV	DX,ID+1
 	CALL	CPSLP
@@ -1416,7 +1408,7 @@ FINIMM:
 	MOV	AL,CL
 	POP	CX
 	RCR	SI
-	TEST	AL,1
+	TEST	AL,001H
 	RCL	SI
 	JZ	PUTBJ
 	CMP	AL,83H
@@ -1784,7 +1776,7 @@ GRP7:
 	JNZ	ACCJ
 	XCHG	DX,BX
 	MOV	BX,[DATA]
-	CALL	L055B
+	CALL	SIGNEXT
 	XCHG	DX,BX
 	JNZ	ACCJ
 	LAHF
@@ -1917,11 +1909,8 @@ AIMM:
 	JNZ	$+5
 	JMP	PUTBYT
 	JMP	PUTWOR
-
 ERR8:	JMP	ERROR
-
 GRP14:
-;JMP and CALL mnemonics
 	LAHF
 	XCHG	AH,AL
 	PUSH	AX
@@ -1936,10 +1925,9 @@ GRP14:
 	JZ	ERR8
 	CMP	AL,XREG
 	JNZ	NOTRG
-	OR	DL,40H
-	OR	DL,80H
+	OR	DL,040H
+	OR	DL,080H
 NOTRG:
-;Indirect jump. DL has addressing mode.
 	MOV	AL,0FFH
 	CALL	PUT
 	POP	AX
@@ -1948,11 +1936,11 @@ NOTRG:
 	AND	AL,38H
 	OR	AL,DL
 	MOV	CH,AL
-	MOV	AL,[L1A98]
+	MOV	AL,[LONG]
 	OR	AL,AL
 	MOV	AL,CH
-	JZ	PUTADDJ		;If so, do inter-segment
-	AND	AL,0F7H		;Convert to intra-segment
+	JZ	PUTADDJ
+	AND	AL,0F7H
 PUTADDJ:
 	JMP	PUTADD
 DIRECT:
@@ -1986,9 +1974,7 @@ LONGJ:
 	CMP	AL,CONST
 	JNZ	ERR8
 	JMP	PUTWOR
-
 GRP16:
-;RET mnemonic
 	LAHF
 	XCHG	AH,AL
 	PUSH	AX
@@ -2011,8 +1997,8 @@ GETSP:
 	CALL	PUT
 	JMP	PUTWOR
 LONGR:
-	MOV	AL,[L1A98]
-	OR	AL,AL		;Is flag "L"?
+	MOV	AL,[LONG]
+	OR	AL,AL
 	JNZ	NOTLON
 	POP	AX
 	XCHG	AH,AL
@@ -2034,8 +2020,6 @@ NOTLON:
 L0011:	
 	JP	GETSP
 NODEC:
-;Return is intra-segment (short) without add to SP. 
-;Record position for RET symbol.
 	MOV	BX,[PC]
 	MOV	[LSTRET],BX
 	XCHG	DX,BX
@@ -2059,7 +2043,6 @@ DORET:
 	XCHG	AH,AL
 	SAHF
 	JMP	PUT
-
 GRP17:
 	CALL	PUT
 	CALL	GETOP
@@ -2079,7 +2062,7 @@ ERR9:	JNZ	ERR10
 	OR	AL,BL
 	JNZ	RET
 	MOV	BX,[DATA]
-	CALL	L055B
+	CALL	SIGNEXT
 	JZ	RET
 	MOV	CL,31
 ERR10:	JMP	ERROR
@@ -2222,7 +2205,7 @@ WREND:
 	JNZ	WREND
 	MOV	AL,[LSTFCB]
 	CMP	AL,'Z'
-	JZ	L1033
+	JZ	NOREOPN
 	CALL	ADDEXT
 	MOV	DX,FCB
 	MOV	CL,OPEN
@@ -2231,10 +2214,10 @@ WREND:
 	XCHG	BX,[HL]
 	XCHG	DX,[DE]
 	XCHG	CX,[BC]
-L1033:
+NOREOPN:
 	MOV	AL,-5
 	MOV	[HEXCNT],AL	;FLAG HEX BUFFER AS EMPTY
-	MOV	[L1B0E],AL
+	MOV	[SKPFLG],AL
 	MOV	BX,HEXBUF
 	MOV	[HEXPNT],BX
 	MOV	BX,LSTBUF
@@ -2249,37 +2232,34 @@ L1033:
 	MOV	[COUNT],AL
 	CALL	STRTLIN
 	MOV	BX,START
-L1069:
+NEXBT:
 	MOV	CH,4
-	MOV	CL,[BX]
+	MOV	CL,[BX]		;Get flag byte
 	LAHF
-	INC	BX
+	INC	BX		;Point to code
 	SAHF
-L1070:
+CDLP:
+	RCL	CL		;Get high bit
+	JC	TESTTYP		;Word fixup or special
 	RCL	CL
-	JC	L1087
-	RCL	CL
-	JNC	L107B
-	JMP	L1108
-L107B:
+	JNC	$+5
+	JMP	DEFBYT		;Byte fixup
 	MOV	AL,[BX]
-L107D:
-	CALL	L13BB
-L1080:
+OBJBT:
+	CALL	SAVCD
+NEXCD:
 	INC	BX
-	DEC	CH
-	JNZ	L1070
-	JP	L1069
-L1087:
+	DEC	CH		;Still have codes left?
+	JNZ	CDLP
+	JP	NEXBT
+TESTTYP:
 	RCL	CL
-	JC	L108E
-	JMP	L1144
-L108E:
+	JC	$+5
+	JMP	DEFWRD
 	MOV	AL,[BX]
 	CMP	AL,-10
-	JB	L1097
-	JMP	L1214
-L1097:
+	JC	$+5
+	JMP	SPCFUN
 	PUSH	CX
 	PUSH	BX
 	MOV	BX,COUNT
@@ -2289,7 +2269,7 @@ L1097:
 	MOV	CH,AL
 	MOV	AL,' '
 	JZ	NOFIL
-BLNK:
+BLNK:				;Put in 3 blanks for each byte not present
 	CALL	LIST
 	CALL	LIST
 	CALL	LIST
@@ -2306,79 +2286,84 @@ NOFIL:
 	CALL	STRTLIN
 	POP	BX
 	POP	CX
-	JP	L1080
+	JP	NEXCD
 
 OUTLIN:
+;Copy the source line to the ouput device. Line will be preceded by
+;assembler-generated line number. This routine may be called several times
+;on one line (once for each line of object code bytes), so it sets a flag
+;so the line will only be output on the first call.
 	CALL	LIST
 	MOV	AL,[LSTFCB]
 	CMP	AL,'Z'
-	JZ	RET2
-	MOV	BX,L1B0F
+	JZ	RET
+	MOV	BX,LINFLG
 	MOV	AL,[BX]
-	MOV	B,[BX],0FFH
+	MOV	B,[BX],-1
 	OR	AL,AL
-	JNZ	CRLF
+	JNZ	CRLF		;Output line only if first time
 OUTLN:
 	CALL	NEXTCHR
 	CALL	LIST
-	CMP	AL,10
+	CMP	AL,10		;Output until linefeed found
 	JNZ	OUTLN
-RET2:	RET
+	RET
 
 PRTCNT:
 	MOV	BX,ERCNTM
 	CALL	PRINT
 	MOV	BX,[ERRCNT]
-	CALL	L1362
-	CALL	L1384
+	CALL	CONV10
+	CALL	PRNT10
 CRLF:
 	MOV	AL,13
 	CALL	LIST
 	MOV	AL,10
 	JMP	LIST
 
-L1108:
-	CALL	L1151
+DEFBYT:
+	CALL	FIXUP
 	XCHG	DX,BX
-	CALL	L055B
+	CALL	SIGNEXT		;See if in range +127 to -128
 	XCHG	DX,BX
-	JZ	L1123
+	JZ	OBJBTE		;If so, it's always OK
 	MOV	AL,DH
-	OR	AL,AL
-	JZ	L1128
+	OR	AL,AL		;Check for range +255 to -256
+	JZ	CHKJMP
 	INC	AL
-	JZ	L1128
-L111E:
-	MOV	AL,101
+	JZ	CHKJMP
+RNGERR:
+	MOV	AL,101		;Value out of range
 	MOV	[ERR],AL
-L1123:
+OBJBTE:
 	MOV	AL,DL
-	JMP	L107D
-L1128:
+	JMP	OBJBT
+CHKJMP:
+;Check for short jump. If so, we're out of range; otherwise we're OK
 	MOV	AL,[COUNT]
-	DEC	AL
-	JNZ	L1123
-	MOV	AL,[L1B10]
-	CMP	AL,0EBH
-	JZ	L111E
+	DEC	AL		;Only one other byte on line?
+	JNZ	OBJBTE		;Can't be short jump if not
+	MOV	AL,[PREV]	;Get the first byte of this line
+	CMP	AL,0EBH		;Direct short jump?
+	JZ	RNGERR
 	AND	AL,0FCH
-	CMP	AL,0E0H
-	JZ	L111E
+	CMP	AL,0E0H		;LOOP or JCXZ instruction?
+	JZ	RNGERR
 	AND	AL,0F0H
-	CMP	AL,70H
-	JZ	L111E
-	JP	L1123
+	CMP	AL,70H		;Conditional jump?
+	JZ	RNGERR
+	JP	OBJBTE
 
-L1144:
-	CALL	L1151
+DEFWRD:
+	CALL	FIXUP
 	MOV	AL,DL
-	CALL	L13BB
+	CALL	SAVCD
 	MOV	AL,DH
-	JMP	L107D
+	JMP	OBJBT
 
-L1151:
+FIXUP:
 	PUSH	CX
-	MOV	DL,[BX]
+	MOV	DL,[BX]		;Get pointer to symbol
 	LAHF
 	INC	BX
 	SAHF
@@ -2387,40 +2372,40 @@ L1151:
 	INC	BX
 	SAHF
 	XCHG	DX,BX
-	MOV	AL,[BX]
+	MOV	AL,[BX]		;Whether symbol was defined
 	LAHF
 	INC	BX
 	SAHF
-	MOV	CL,[BX]
+	MOV	CL,[BX]		;Get symbol value
 	LAHF
 	INC	BX
 	SAHF
 	MOV	CH,[BX]
 	XCHG	DX,BX
-	MOV	DL,[BX]
+	MOV	DL,[BX]		;Get constant part
 	LAHF
 	INC	BX
 	SAHF
 	MOV	DH,[BX]
 	XCHG	DX,BX
 	LAHF
-	ADD	BX,CX
+	ADD	BX,CX		;Add symbol value to constant part
 	RCR	SI
 	SAHF
 	RCL	SI
 	POP	CX
 	XCHG	DX,BX
-	OR	AL,AL
-	JNZ	RET1
-	MOV	AL,64H
+	OR	AL,AL		;See if symbol got defined
+	JNZ	RET
+	MOV	AL,100		;Undefined - flag error
 	MOV	[ERR],AL
 	MOV	DX,0
-RET1:	RET
+	RET
 
 STRTLIN:
 	XOR	AL,AL
 	MOV	[ERR],AL
-	MOV	[L1B0F],AL
+	MOV	[LINFLG],AL
 	MOV	BX,[PC]
 	MOV	AL,BH
 	CALL	PHEX
@@ -2435,9 +2420,9 @@ LIST:
 	XCHG	AH,AL
 	MOV	AL,[LSTFCB]
 	CMP	AL,'Z'
-	JZ	L11ED
+	JZ	OUTRET
 	CMP	AL,'X'
-	JZ	L11F2
+	JZ	LSTCON
 	POP	AX
 	XCHG	AH,AL
 	SAHF
@@ -2449,9 +2434,9 @@ LIST:
 	PUSH	BX
 	MOV	BX,[LSTPNT]
 	MOV	[BX],AL
-	CALL	L1546
+	CALL	INCBUF
 	MOV	[LSTPNT],BX
-	JNZ	L11EC
+	JNZ	HAVSPC
 	MOV	BX,LSTBUF
 	MOV	[LSTPNT],BX
 	PUSH	DX
@@ -2464,14 +2449,14 @@ LIST:
 	CALL	5
 	POP	CX
 	POP	DX
-L11EC:
+HAVSPC:
 	POP	BX
-L11ED:
+OUTRET:
 	POP	AX
 	XCHG	AH,AL
 	SAHF
 	RET
-L11F2:
+LSTCON:
 	POP	AX
 	XCHG	AH,AL
 	SAHF
@@ -2479,7 +2464,7 @@ L11F2:
 	XCHG	AH,AL
 	PUSH	AX
 	XCHG	AH,AL
-	CALL	OUT
+	CALL	OUTA
 	POP	AX
 	XCHG	AH,AL
 	SAHF
@@ -2493,22 +2478,24 @@ PHEX:
 	CALL	LHALF
 	JMP	LIST
 
-L1214:
-	INC	AL
-	JZ	L125B
+SPCFUN:
+	INC	AL		;End of file?
+	JZ	FINI
 	LAHF
 	INC	BX
 	SAHF
-	MOV	DL,[BX]
+	MOV	DL,[BX]		;Get address
 	LAHF
 	INC	BX
 	SAHF
 	MOV	DH,[BX]
 	PUSH	BX
-	INC	AL
-	JZ	L1253
-	INC	AL
-	JZ	L124D
+	INC	AL		;ORG?
+	JZ	DORG
+	INC	AL		;PUT?
+	JZ	DPUT
+DDS:
+;Handle DS pseudo-op
 	MOV	BX,[PC]
 	LAHF
 	ADD	BX,DX
@@ -2523,47 +2510,52 @@ L1214:
 	SAHF
 	RCL	SI
 	MOV	[HEXADD],BX
-	JP	L1257
-L124D:
+	JP	SPEND
+
+DPUT:
+;Handle PUT pseudo-op
 	MOV	[HEXADD],DX
-	JP	L1257
-L1253:
+	JP	SPEND
+
+DORG:
+;Handle ORG pseudo-op
 	MOV	[PC],DX
-L1257:
+SPEND:
 	POP	BX
-	JMP	L1080
-L125B:
+	JMP	NEXCD
+
+FINI:
 	CALL	PRTCNT
 	MOV	AL,[HEXFCB]
 	CMP	AL,'Z'
 	JZ	SYMDMP
 	MOV	AL,[HEXCNT]
 	CMP	AL,-5
-	JZ	L126F
+	JZ	L0012
 	CALL	ENHEXL
-L126F:
+L0012:	
 	MOV	AL,':'
 	CALL	PUTCHR
 	MOV	CH,10
-L1276:
+HEXEND:
 	PUSH	CX
 	MOV	AL,'0'
 	CALL	PUTCHR
 	POP	CX
 	DEC	CH
-	JNZ	L1276
-	CALL	L14F4
-	JZ	L1289
-	CALL	L13B3
-L1289:
-	CALL	L13B3
+	JNZ	HEXEND
+	CALL	HEXCRLF
+	JZ	L0013
+	CALL	HEXEOF
+L0013:	
+	CALL	HEXEOF
 	MOV	CL,CLOSE
 	MOV	DX,HEXFCB
 	CALL	SYSTEM
 SYMDMP:
 	MOV	AL,[SYMFLG]
 	CMP	AL,'S'
-	JNZ	L12B4
+	JNZ	ENDSYM
 	MOV	BX,SYMMES
 	CALL	PRINT
 	MOV	DX,[BASE]
@@ -2572,33 +2564,32 @@ SYMDMP:
 	JZ	EXIT
 	MOV	BX,[HEAP]
 	MOV	SP,BX
-	CALL	L12E5
-L12B4:
+	CALL	NODE
+ENDSYM:
 	MOV	AL,[LSTFCB]
 	CMP	AL,'X'
 	JZ	EXIT
 	CMP	AL,'Z'
-	JZ	L12CA
-	CALL	L12D6
+	JZ	ERRCON		;Print error count to console
+	CALL	LSTEOF
 	MOV	DX,LSTFCB
 	MOV	CL,CLOSE
 	CALL	5
-L12CA:
+ERRCON:
 	MOV	AL,'X'
 	MOV	[LSTFCB],AL
 	CALL	PRTCNT
 EXIT:	JMP	0
 	RET
-
-L12D6:
+LSTEOF:
 	MOV	AX,[LSTPNT]
 	CMP	AX,LSTBUF
 	JZ	RET
 	MOV	AL,1AH
 	CALL	LIST
-	JP	L12D6
+	JP	LSTEOF
 
-L12E5:
+NODE:
 	XCHG	DX,BX
 	PUSH	BX
 	MOV	DL,[BX]
@@ -2618,35 +2609,35 @@ L12E5:
 	MOV	DH,[BX]
 	MOV	AL,DL
 	OR	AL,DH
-	JZ	L1307
-	CALL	L12E5
-L1307:
+	JZ	L0014
+	CALL	NODE
+L0014:	
 	POP	BX
 	MOV	CH,[BX]
 	LAHF
 	INC	BX
 	SAHF
-	MOV	AL,0AH
+	MOV	AL,SYMWID
 	SUB	AL,CH
-	JNB	L1315
+	JNC	LENOK
 	MOV	AL,1
-L1315:
+LENOK:
 	MOV	DH,AL
-L1317:
+WRTSYM:
 	MOV	AL,[BX]
 	LAHF
 	INC	BX
 	SAHF
 	CALL	LIST
 	DEC	CH
-	JNZ	L1317
+	JNZ	WRTSYM
 	MOV	CH,DH
 	INC	CH
-	MOV	AL,20H
-L1329:
+	MOV	AL,' '
+OUTB:
 	CALL	LIST
 	DEC	CH
-	JNZ	L1329
+	JNZ	OUTB
 	LAHF
 	INC	BX
 	SAHF
@@ -2682,13 +2673,13 @@ L1329:
 	MOV	DH,[BX]
 	MOV	AL,DH
 	OR	AL,DL
-	JNZ	L12E5
+	JNZ	NODE
 	RET
 
-L1362:
-	MOV	CH,10H
+CONV10:
+	MOV	CH,16
 	MOV	DX,0
-L1367:
+CONVLP:
 	LAHF
 	ADD	BX,BX
 	RCR	SI
@@ -2704,44 +2695,44 @@ L1367:
 	MOV	DH,AL
 	RCL	CL
 	DEC	CH
-	JNZ	L1367
+	JNZ	CONVLP
 	RET
 
-L1384:
+PRNT10:
 	XCHG	DX,BX
-	MOV	CH,10H
+	MOV	CH,"0"-" "	;Enable leading zero suppression
 	MOV	AL,CL
-	CALL	L13A0
+	CALL	LODIG
 	MOV	AL,BH
-	CALL	L13AE
+	CALL	HIDIG
 	MOV	AL,BH
-	CALL	L13A0
+	CALL	LODIG
 	MOV	AL,BL
-	CALL	L13AE
+	CALL	HIDIG
 	MOV	AL,BL
-	MOV	CH,0
-L13A0:
+	MOV	CH,0		;Don't suppress last digit
+LODIG:
 	CALL	LHALF
-L13A3:
-	CMP	AL,30H
-	JZ	L13A9
-	MOV	CH,0
-L13A9:
-	SUB	AL,CH
+DIGIT:
+	CMP	AL,"0"
+	JZ	SUPZ
+	MOV	CH,0		;Turn off zero suppression if not zero
+SUPZ:
+	SUB	AL,CH		;Convert leading zeros to blanks
 	JMP	LIST
 
-L13AE:
+HIDIG:
 	CALL	UHALF
-	JP	L13A3
+	JP	DIGIT
 
-L13B3:
+HEXEOF:
 	MOV	AL,1AH
 	CALL	PUTCHR
-	JNZ	L13B3
+	JNZ	HEXEOF
 	RET
 
-L13BB:
-	MOV	[L1B10],AL
+SAVCD:
+	MOV	[PREV],AL
 	PUSH	BX
 	PUSH	CX
 	LAHF
@@ -2749,23 +2740,23 @@ L13BB:
 	PUSH	AX
 	XCHG	AH,AL
 	PUSH	DX
-	CALL	L144E
+	CALL	CODBYT
 	POP	DX
 	MOV	BX,COUNT
 	INC	B,[BX]
 	MOV	AL,[BX]
 	CMP	AL,7
-	JNZ	L13E9
+	JNZ	NOEXT
 	MOV	B,[BX],1
-	MOV	AL,20H
+	MOV	AL,' '
 	CALL	OUTLIN
-	MOV	AL,20H
+	MOV	AL,' '
 	MOV	CH,5
-L13E2:
+TAB:
 	CALL	LIST
 	DEC	CH
-	JNZ	L13E2
-L13E9:
+	JNZ	TAB
+NOEXT:
 	POP	AX
 	XCHG	AH,AL
 	SAHF
@@ -2785,19 +2776,19 @@ L13E9:
 	RET
 
 REPERR:
-	OR	AL,AL		;Did an error occur?
+	OR	AL,AL
 	JZ	RET
 	LAHF
 	XCHG	AH,AL
 	PUSH	AX
 	XCHG	AH,AL
-	MOV	BX,ERRMES	;Print "ERROR"
+	MOV	BX,ERRMES
 	CALL	PRINT
 	POP	AX
 	XCHG	AH,AL
 	SAHF
 	CALL	PHEX
-	MOV	BX,HEXSUF
+	MOV	BX,ENDMES
 	CALL	PRINT
 	MOV	BX,[ERRCNT]
 	LAHF
@@ -2816,7 +2807,7 @@ PRINT:
 	SAHF
 	JP	PRINT
 
-OUT:
+OUTA:
 	MOV	DL,AL
 	MOV	CL,2
 SYSTEM:
@@ -2829,16 +2820,15 @@ SYSTEM:
 	POP	CX
 	RET
 
-L144E:
+CODBYT:
 	LAHF
 	XCHG	AH,AL
 	PUSH	AX
 	XCHG	AH,AL
 	MOV	AL,[HEXFCB]
 	CMP	AL,'Z'
-	JNZ	L145E
-	JMP	L11ED
-L145E:
+	JNZ	$+5
+	JMP	OUTRET
 	MOV	DX,[LASTAD]
 	MOV	BX,[HEXADD]
 	MOV	[LASTAD],BX
@@ -2893,7 +2883,7 @@ ENHEXL:
 	MOV	CH,AL
 	CALL	UHALF
 	MOV	[BX],AL
-	CALL	L1546
+	CALL	INCBUF
 	MOV	AL,CH
 	CALL	LHALF
 	MOV	[BX],AL
@@ -2904,7 +2894,7 @@ ENHEXL:
 	NEG	AL
 	CALL	HEXBYT
 
-L14F4:
+HEXCRLF:
 	MOV	AL,13
 	CALL	PUTCHR
 	MOV	AL,10
@@ -2912,15 +2902,15 @@ L14F4:
 PUTCHR:
 	MOV	BX,[HEXPNT]
 	MOV	[BX],AL
-	CALL	L1546
+	CALL	INCBUF
 	MOV	[HEXPNT],BX
 	JNZ	RET
 	PUSH	BX
-	MOV	BX,L1B0E
+	MOV	BX,SKPFLG
 	MOV	AL,[BX]
-	MOV	B,[BX],0
+	MOV	B,[BX],0	;Buffer filled, don't skip next time
 	POP	BX
-	OR	AL,AL
+	OR	AL,AL		;Both buffers filled?
 	JNZ	RET
 	MOV	CL,SETDMA
 	XCHG	DX,BX
@@ -2947,15 +2937,15 @@ LHALF:
 	ADD	AL,7
 RET:	RET
 
-L1546:
+INCBUF:
 	INC	BX
-	CMP	BX,HEXBUF+128
+	CMP	BX,HEXBUF+HEXBUFSIZ
 	JZ	RET
-	CMP	BX,LSTBUF+128
+	CMP	BX,LSTBUF+LSTBUFSIZ
 	JZ	RET
-	CMP	BX,L1B9B+128
+	CMP	BX,HEXBUF2+HEXBUFSIZ
 	JNZ	RET
-	MOV	BX,HEXBUF
+	MOV	BX,HEXBUF		;Wrap back to first buffer
 	RET
 
 NONE:	DB	0
@@ -3611,8 +3601,8 @@ OPTAB:
 
 HEADER:	DB	13,10,'Seattle Computer Products 8086 Assembler Version 2.00',13,10,'$'
 ERRMES:	DM	'***** ERROR no. '
-NOSPAC:	DB	13,10,'No directory space',13,10,'$'
-HEXSUF:	DM	'H',13,10
+NOSPAC:	DB	13,10,'No directory space',13,10,24H
+ENDMES:	DM	'H',13,10
 NOMEM:	DB	13,10,'Insufficient memory',13,10,'$'
 NOFILE:	DB	13,10,'File not found',13,10,'$'
 WRTERR:	DB	13,10,'Disk write error',13,10,'$'
@@ -3632,7 +3622,7 @@ PC:	DS	2
 OLDPC:	DS	2
 LABPT:	DS	2
 FLAG:	DS	1
-L1A98:	DS	1
+LONG:	DS	1
 ADDR:	DS	2
 ALABEL:	DS	2
 DATA:	DS	2
@@ -3658,18 +3648,18 @@ HEXADD:	DS	2
 LASTAD:	DS	2
 HEXCNT:	DS	1
 CHKSUM:	DS	1
-L1B0E:	DS	1
-L1B0F:	DS	1
-L1B10:	DS	1
+SKPFLG:	DS	1
+LINFLG:	DS	1
+PREV:	DS	1
 IFFLG:	DS	1
 CHKLAB:	DS	1
 LSTPNT:	DS	2
 ERRCNT:	DS	2
 LSTRET:	DS	2
 RETPT:	DS	2
-HEXBUF:	DS	128
-L1B9B:	DS	128
-LSTBUF:	DS	128
+HEXBUF:	DS	HEXBUFSIZ
+HEXBUF2:DS	HEXBUFSIZ
+LSTBUF:	DS	LSTBUFSIZ
 BC:	DS	2
 DE:	DS	2
 HL:	DS	2
@@ -3678,4 +3668,4 @@ IY:	DS	2
 	DS	50
 STACK:	EQU	$
 START:	EQU	$
-
+
