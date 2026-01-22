@@ -2,7 +2,9 @@
 ;   by Tim Paterson
 ; Runs on the Z80 under CP/M
 
+SYMWID:	EQU	10
 FCB:	EQU	5CH
+BUFSIZ:	EQU	128
 EOL:	EQU	13	;ASCII carriage return
 OBJECT:	EQU	100H	;DEFAULT "PUT" ADDRESS
 
@@ -56,7 +58,8 @@ DEFAULT:
 	CP	'Z'		;Suppress PRN file?
 	JR	Z,NOPRN
 	CP	'X'		;PRN file to console?
-	CALL	NZ,CHKDSK
+	JR	Z,NOPRN
+	CALL	CHKDSK
 NOPRN:
 	LD	(LSTFCB),A
 	CALL	ADDEXT
@@ -114,7 +117,6 @@ LOOP:
 ENDLN:
 	XOR	A		;Flag no errors on line
 ENDLIN:
-;AL = error code for line. Stack depth unknown
 	LD	SP,STACK
 	CALL	NEXLIN
 	JR	LOOP
@@ -206,10 +208,6 @@ NOMOD:
 
 
 MROPS:
-
-; Get two operands and check for certain types, according to flag byte
-; in CL. OP code in CH. Returns only if immediate operation.
-
 	PUSH	BC		;Save type flags
 	CALL	GETOP
 	PUSH	DE		;Save first operand
@@ -337,29 +335,6 @@ GETOP2:
 
 
 GETOP:
-
-; Get one operand. Operand may be a memory reference in brackets, a register,
-; or a constant. If a flag (such as "B" for byte operation) is encountered,
-; it is noted and processing continues to find the operand.
-;
-; On exit, AL (=DH) has the type of operand. Other information depends
-; on the actual operand:
-;
-; AL=DH=0  Memory Reference.  DL has the address mode properly prepared in
-; the 8086 R/M format (middle bits zero). The constant part of the address
-; is in ADDR. If an undefined label needs to be added to this, a pointer to
-; its information fields is in ALABEL, otherwise ALABEL is zero.
-;
-; AL=DH=1  Value. The constant part is in DATA. If an undefined label needs
-; to be added to this, a pointer to its information fields is in DLABEL,
-; otherwise DLABEL is zero. "$" and "RET" are in this class.
-;
-; AL=DH=2  8-bit Register. DL has the register number.
-;
-; AL=DH=3  16-bit Register. DL has the register number.
-;
-; AL=DH=4  Segment Register. DL has the register number.
-
 	CALL	GETSYM
 GETOP1:
 ;Enter here if we don't need a GETSYM first
@@ -416,14 +391,6 @@ FLG:
 
 
 GETVAL:
-
-; Expression analyzer. On entry, if AL=0 then do not allow base or index
-; registers. If AL=1, we are analyzing a memory reference, so allow base
-; and index registers, and compute addressing mode when done. The constant
-; part of the expression will be found in CON. If an undefined label is to
-; be added to this, a pointer to its information fields will be found in
-; UNDEF.
-
 	EX	AF,AF'
 	PUSH	HL
 	LD	HL,0
@@ -437,193 +404,163 @@ GETVAL:
 	JR	Z,PLSMNS
 	LD	B,'+'
 	PUSH	BC
-	JR	L045C
+	JR	OPERATE
 PLSMNS:
 	PUSH	AF
 	EX	AF,AF'
 	SET	2,A		;Flag that a sign was found
 	EX	AF,AF'
 	CALL	GETSYM
-L045C:
-	CP	1
-	JR	NZ,L0463
-	JP	L0578
-L0463:
-	CP	0
-	JR	NZ,L046A
-	JP	L0597
-L046A:
+OPERATE:
+	CP	CONST
+	JP	Z,CVAL
+	CP	UNDEFID
+	JP	Z,UVAL
 	CP	'"'
-	JR	NZ,L0471
-L046E:
-	JP	L0648
-L0471:
+	JP	Z,STRING
 	CP	'''
-	JR	Z,L046E
-	CP	3
-	LD	C,14H
+	JP	Z,STRING
+	CP	XREG		;Only 16-bit register may index
+	LD	C,20
 	JP	NZ,ERROR
 	EX	AF,AF'
-	BIT	0,A
+	BIT	0,A		;Check to see if indexing is OK
 	LD	C,1
 	JP	Z,ERROR
 	EX	AF,AF'
 	LD	A,E
 	LD	C,3
-	CP	3
-	JR	Z,L04C6
-	SUB	5
-	JR	Z,L04D7
-	DEC	A
+	CP	3		;Check for BX
+	JR	Z,BXJ
+	SUB	5		;Check for BP
+	JR	Z,BPJ
+	DEC	A		;Check for SI
 	LD	C,4
-	JR	Z,L04B5
-	DEC	A
-	JR	Z,L04A6
-	LD	C,2
+	JR	Z,SIJ
+	DEC	A		;Check for DI
+	JR	Z,DIJ
+	LD	C,2		;Invalid base/index register
 	JP	ERROR
-L04A6:
+DIJ:
 	EX	AF,AF'
-	BIT	4,A
+	BIT	4,A		;Check if already seen index register
 	JP	NZ,ERROR
-	OR	30H
-	JR	L04E4
-L04B5:
+	OR	30H		;Flag seeing index register DI
+	JR	LPCHK
+SIJ:
 	EX	AF,AF'
-	BIT	4,A
+	BIT	4,A		;Check if already seen index register
 	JP	NZ,ERROR
-	SET	4,A
-	JR	L04E4
-L04C6:
+	SET	4,A		;Flag seeing index register SI
+	JR	LPCHK
+BXJ:
 	EX	AF,AF'
-	BIT	7,A
+	BIT	7,A		;Check if already seen base register
 	JP	NZ,ERROR
-	SET	7,A
-	JR	L04E4
-L04D7:
+	SET	7,A		;Flag seeing base register BX
+	JR	LPCHK
+BPJ:
 	EX	AF,AF'
-	BIT	7,A
+	BIT	7,A		;Check if already seen base register
 	JP	NZ,ERROR
-	OR	0C0H
-L04E4:
+	OR	0C0H		;Flag seeing base register BP
+LPCHK:
 	EX	AF,AF'
-	POP	AF
-	CP	'-'
+	POP	AF		;Get operator
+	CP	'-'		;Can't subtract a register
 	LD	C,5
 	JP	Z,ERROR
-L04F1:
+NEXTER:
 	EX	AF,AF'
-	SET	2,A
+	SET	2,A		;Flag that a term was processed
 	EX	AF,AF'
 	CALL	GETSYM
 	CP	'+'
-	JR	NZ,L0505
-L0502:
-	JP	PLSMNS
-L0505:
+	JR	Z,PLSMNS
 	CP	'-'
-	JR	Z,L0502
+	JP	Z,PLSMNS
 	EX	AF,AF'
 	LD	B,0
-	BIT	4,A
-	RLA
-	JR	Z,NOIND
+	BIT	4,A		;Test INDEX bit
+	RLA			;BASE bit (zero flag not affected)
+	JR	Z,NOIND		;Jump if not indexed, with BASE bit in carry
 	CCF
 	RL	B
-	RLA
+	RLA			;BP bit
 	RL	B
-	RLA
-	RL	B
-L0523:
+	RLA			;DI bit
+	RL	B		;The low 3 bits now have indexing mode
+MODE:
 	LD	HL,(UNDEF)
 	LD	A,H
 	OR	L
-	SET	7,B
+	SET	7,B		;If undefined label, force 16-bit displacement
 	RET	NZ
 	LD	HL,(CON)
-	CALL	L055B
-	RET	NZ
-	RES	7,B
-	SET	6,B
+	CALL	SIGNEXT		;Check if 8-bit with sign extended
+	RET	NZ		;If not, use 16-bit displacement
+	RES	7,B		;Reset 16-bit displacement
+	SET	6,B		;Set 8-bit displacement
 	LD	A,H
 	OR	L
-	RET	NZ
+	RET	NZ		;Use it if not zero displacement
 	LD	A,B
-	AND	7
+	AND	7		;Specify no displacement
 	LD	B,A
-	CP	6
+	CP	6		;Check for BP+0 addressing mode
 	RET	NZ
-	SET	6,B
+	SET	6,B		;If BP+0, use 8-bit displacement
 	RET
 
-L055B:
+SIGNEXT:
 	LD	A,H
 	OR	A
-	JR	Z,L0565
+	JR	Z,HIZERO
 	INC	A
 	RET	NZ
-L0565:
+HIZERO:
 	LD	A,L
 	XOR	H
 	AND	80H
 	RET
 
 NOIND:
-	LD	B,6
-	RET	NC
-	RLA
-	JR	C,L0523
-	INC	B
-	JR	L0523
+	LD	B,6		;Try direct address mode
+	RET	NC		;If no base register, that's right
+	RLA			;Check BP bit
+	JR	C,MODE
+	INC	B		;If not, must be BX
+	JR	MODE
 
-L0578:
+CVAL:
 	LD	HL,(CON)
 	POP	AF
 	CP	'-'
-	JR	NZ,L058D
+	JR	NZ,ADDCON
 	SBC	HL,DE
-L0586:
+SETCON:
 	LD	(CON),HL
-	JR	L04F1
-L058D:
+	JR	NEXTER
+ADDCON:
 	ADD	HL,DE
-	JR	L0586
+	JR	SETCON
 
-L0597:
+UVAL:
 	EX	AF,AF'
 	LD	C,6
-	BIT	3,A
-	JR	NZ,L05B5
-	SET	3,A
+	BIT	3,A		;Check if undefined label has been seen
+	JP	NZ,ERROR
+	SET	3,A		;Flag seeing undefined label
 	EX	AF,AF'
 	LD	(UNDEF),HL
 	POP	AF
-	CP	'+'
+	CP	'+'		;Undefined label may only be added
 	LD	C,5
-L05B5:
 	JP	NZ,ERROR
-	JR	L04F1
+	JR	NEXTER
 
 
 GETSYM:
-
-; The lexical scanner. Used only in the operand field. Returns with the token
-; in SYM and AL, sometimes with additional info in BX or DX.
-;
-; AL=SYM=0  Undefined label. BX has pointer to information fields.
-;
-; AL=SYM=1  Constant (or defined label). DX has value.
-;
-; AL=SYM=2,3,4  8-bit register, 16-bit register, or segment register,
-; respectively. DL has register number.
-;
-; AL=SYM=5  A mode flag (such as "B" for byte operation). Type of flag in DL
-; and also stored in FLAG: -1=no flags, 0=B, 1=W, 2=S, 3=L, 4=T.
-;
-; AL=SYM=6  8087 floating point register, ST(n) or ST. DL has register number.
-;
-; All other values are the ASCII code of the character. Note that this may
-; never be a letter or number.
-
 	CALL	GETSY
 	LD	A,(SYM)
 	RET
@@ -689,47 +626,45 @@ DEC:
 	EX	DE,HL
 	RET
 
-L0648:
+STRING:
 	LD	B,A
 	LD	A,(CHR)
 	CP	B
-	LD	C,'#'
+	LD	C,35
 	LD	E,A
 	LD	D,0
-	CALL	Z,L0690
-	CALL	L0698
+	CALL	Z,ZERLEN
+	CALL	GETCHR
 	EX	AF,AF'
-	LD	C,'%'
+	LD	C,37
 	BIT	1,A
 	JP	Z,ERROR
 	BIT	2,A
-	LD	C,'&'
+	LD	C,38
 	JP	NZ,ERROR
 	EX	AF,AF'
-L066F:
+STRGDAT:
 	LD	A,E
-	CP	13
-	LD	C,'''
+	CP	EOL
+	LD	C,39
 	JP	Z,ERROR
 	CALL	PUT
 	LD	A,(DATSIZ)
 	OR	A
-	JR	NZ,L0686
+	JR	NZ,BYTSIZ
 	LD	A,D
 	CALL	PUT
-L0686:
+BYTSIZ:
 	LD	A,(CHR)
 	LD	E,A
-	CALL	L0698
-	JR	L066F
-
-L0690:
+	CALL	GETCHR
+	JR	STRGDAT
+ZERLEN:
 	CALL	NEXTCHR
 	CP	B
 	JP	NZ,ERROR
 	RET
-
-L0698:
+GETCHR:
 	CALL	NEXTCHR
 	CP	B
 	RET	NZ
@@ -737,7 +672,7 @@ L0698:
 	CP	B
 	RET	Z
 	POP	HL
-	JP	L0578
+	JP	CVAL
 
 HEX:
 	LD	DE,ID
@@ -761,8 +696,6 @@ GOTIT:
 	DJNZ	HEX1
 	EX	DE,HL
 	RET
-
-	JP	ERROR
 
 GETLET:
 	CALL	SCANB
@@ -811,14 +744,14 @@ LETTER:
 	LD	A,(ID)
 	CP	'l'
 	LD	C,0
-	LD	DE,L1A98
-	JR	Z,SAVFLG
+	LD	DE,LONG
+	JR	Z,BWFLAG
 	CP	'b'
 	LD	DE,FLAG
-	JR	Z,SAVFLG
+	JR	Z,BWFLAG
 	CP	'w'
 	LD	C,1
-	JR	Z,SAVFLG
+	JR	Z,BWFLAG
 	XOR	A
 NOFLG:
 	DEC	A
@@ -831,15 +764,13 @@ SYMSAV:
 	LD	(SYM),A
 	RET
 
-SAVFLG:
+BWFLAG:
 	EX	DE,HL
 	LD	A,(HL)
 	INC	A
 	LD	(HL),C
 	LD	C,32
-	JR	Z,L0760
-	JP	ERROR
-L0760:
+	JP	NZ,ERROR
 	LD	A,5
 	JR	SYMSAV
 
@@ -949,7 +880,7 @@ CHKRET:
 	JR	Z,ALLRET
 	LD	HL,(PC)
 	SBC	HL,DE
-	CALL	L055B
+	CALL	SIGNEXT
 	LD	A,1
 	RET	Z
 ALLRET:
@@ -1006,24 +937,6 @@ EMPTY:
 
 
 CREATE:
-
-; Add a new node to the identifier tree. The identifier is at ID with
-; bit 7 of the last character set to one. The length of the identifier is
-; in LENID, which is ID-1.
-;
-; Node format:
-;	1. Length of identifier (1 byte)
-;	2. Identifier (1-80 bytes)
-;	3. Left link (2-byte pointer to alphabetically smaller identifiers)
-;	4. Right link (0 if none larger)
-;	5. Data field:
-;	   a. Defined flag (0=undefined, 1=defined)
-;	   b. Value (2 bytes)
-;
-; This routine returns with AL=zero and zero flag set (which indicates
-; on return from LOOKUP that it has not yet been defined), DX points
-; to start of new node, and BX points to data field of new node.
-
 	LD	A,(LENID)
 	ADD	A,8		;Storage needed for the node
 	LD	HL,(HEAP)
@@ -1066,7 +979,7 @@ GETLAB:
 	LD	(LABPT),HL
 	LD	A,-1
 	LD	(FLAG),A
-	LD	(L1A98),A
+	LD	(LONG),A
 	LD	D,0
 	LD	A,(CHR)
 	CP	' '+1
@@ -1098,8 +1011,6 @@ LABEL:
 	INC	HL
 	LD	(HL),D
 	JP	GETLET
-
-	JP	ERROR
 
 ASMLIN:
 	LD	HL,(PC)
@@ -1139,7 +1050,7 @@ ASMLIN:
 	JR	Z,OPERR
 FINDOP:
 	LD	B,C
-	EX	AF,AF'		;Save count of opcodes in BP
+	EX	AF,AF'
 	LD	DE,ID+1
 	CALL	CPSLP
 	JR	Z,HAVOP
@@ -1221,8 +1132,6 @@ IMM:
 	RET
 
 PUT:
-;Save byte in AL as pure code, with intermediate code bits 00. AL and
-;DI destroyed, no other registers affected.
 	PUSH	HL
 	PUSH	BC
 	LD	B,0		;Flag as pure code
@@ -1232,7 +1141,6 @@ PUT:
 	RET
 
 GEN:
-;Save byte of code in AL, given intermediate code bits in bits 7&8 of CH.
 	CALL	PUTINC		;Save it and bump code pointer
 GEN1:
 	LD	A,(RELOC)
@@ -1272,9 +1180,6 @@ PUTCD1:	LD	HL,(CODE)
 	RET
 
 PUTWOR:
-;Save the word value described by [DLABEL] and [DATA] as code. If defined,
-;two bytes of pure code will be produced. Otherwise, appropriate intermediate
-;code will be generated.
 	PUSH	BC
 	LD	B,80H
 	PUSH	DE
@@ -1282,7 +1187,6 @@ PUTWOR:
 	JR	PUTBW
 
 PUTBYT:
-;Same as PUTWOR, above, but for byte value.
 	PUSH	BC
 	LD	B,40H
 	PUSH	DE
@@ -1339,10 +1243,6 @@ NOUNDEF:
 	JR	PRET
 
 PUTADD:
-;Save complete addressing mode. Addressing mode is in AL; if this is a register
-;operation (>=C0), then the one byte will be saved as pure code. Otherwise,
-;the details of the addressing mode will be investigated and the optional one-
-;or two-byte displacement will be added, as described by [ADDR] and [ALABEL].
 	PUSH	BC
 	PUSH	DE
 	PUSH	HL
@@ -1437,7 +1337,6 @@ EXMEM1:
 	JP	Z,ERROR
 	LD	C,1	;Flag word as OK
 	CALL	NOTAC	;NOTAC never returns
-	JP	ERROR
 
 GRP4:
 	PUSH	AF
@@ -1534,7 +1433,7 @@ GRP7:
 	JP	NZ,ACCIMM
 	EX	DE,HL
 	LD	HL,(DATA)
-	CALL	L055B
+	CALL	SIGNEXT
 	EX	DE,HL
 	JP	NZ,ACCIMM
 	SET	1,C
@@ -1650,11 +1549,7 @@ AIMM:
 	POP	AF
 	JP	Z,PUTBYT
 	JP	PUTWOR
-
-	JP	ERROR
-
 GRP14:
-;JMP and CALL mnemonics
 	PUSH	AF
 	CALL	GETOP
 	CP	CONST
@@ -1669,18 +1564,17 @@ GRP14:
 	SET	6,E
 	SET	7,E
 NOTRG:
-;Indirect jump. DL has addressing mode.
 	LD	A,0FFH
 	CALL	PUT
 	POP	AF
 	AND	38H
 	OR	E
 	LD	B,A
-	LD	A,(L1A98)
+	LD	A,(LONG)
 	OR	A
 	LD	A,B
-	JP	Z,PUTADD	;If so, do inter-segment
-	AND	0F7H		;Convert to intra-segment
+	JP	Z,PUTADD
+	RES	3,A
 	JP	PUTADD
 DIRECT:
 	LD	A,(SYM)
@@ -1710,9 +1604,7 @@ LONGJ:
 	CP	CONST
 	JP	NZ,ERROR
 	JP	PUTWOR
-
 GRP16:
-;RET mnemonic
 	PUSH	AF
 	CALL	GETSYM
 	CP	5
@@ -1732,8 +1624,8 @@ GETSP:
 	CALL	PUT
 	JP	PUTWOR
 LONGR:
-	LD	A,(L1A98)
-	OR	A		;Is flag "L"?
+	LD	A,(LONG)
+	OR	A
 	JR	NZ,NOTLON
 	POP	AF
 	OR	8
@@ -1748,8 +1640,6 @@ NOTLON:
 	CALL	Z,GETSYM
 	JR	GETSP
 NODEC:
-;Return is intra-segment (short) without add to SP. 
-;Record position for RET symbol.
 	LD	HL,(PC)
 	LD	(LSTRET),HL
 	EX	DE,HL
@@ -1767,7 +1657,6 @@ NODEC:
 DORET:
 	POP	AF
 	JP	PUT
-
 GRP17:
 	CALL	PUT
 	CALL	GETOP
@@ -1785,7 +1674,7 @@ GRP17:
 	OR	L
 	RET	NZ
 	LD	HL,(DATA)
-	CALL	L055B
+	CALL	SIGNEXT
 	RET	Z
 	LD	C,31
 	JP	ERROR
@@ -1921,17 +1810,17 @@ WREND:
 	JR	NZ,WREND
 	LD	A,(LSTFCB)
 	CP	'Z'
-	JR	Z,L1033
+	JR	Z,NOREOPN
 	CALL	ADDEXT
 	LD	DE,FCB
 	LD	C,OPEN
 	CALL	SYSTEM
 	LD	HL,0FFH
 	EXX
-L1033:
+NOREOPN:
 	LD	A,-5
 	LD	(HEXCNT),A	;FLAG HEX BUFFER AS EMPTY
-	LD	(L1B0E),A
+	LD	(SKPFLG),A
 	LD	HL,HEXBUF
 	LD	(HEXPNT),HL
 	LD	HL,LSTBUF
@@ -1946,34 +1835,28 @@ L1033:
 	LD	(COUNT),A
 	CALL	STRTLIN
 	LD	HL,START
-L1069:
+NEXBT:
 	LD	B,4
-	LD	C,(HL)
-	INC	HL
-L1070:
+	LD	C,(HL)		;Get flag byte
+	INC	HL		;Point to code
+CDLP:
+	RL	C		;Get high bit
+	JR	C,TESTTYP	;Word fixup or special
 	RL	C
-	JR	C,L1087
-	RL	C
-	JR	NC,L107B
-	JR	L1108
-L107B:
+	JR	C,DEFBYT	;Byte fixup
 	LD	A,(HL)
-L107D:
-	CALL	L13BB
-L1080:
+OBJBT:
+	CALL	SAVCD
+NEXCD:
 	INC	HL
-	DJNZ	L1070
-	JR	L1069
-L1087:
+	DJNZ	CDLP		;Still have codes left?
+	JR	NEXBT
+TESTTYP:
 	RL	C
-	JR	C,L108E
-	JP	L1144
-L108E:
+	JP	NC,DEFWRD
 	LD	A,(HL)
 	CP	-10
-	JR	C,L1097
-	JP	L1214
-L1097:
+	JP	NC,SPCFUN
 	PUSH	BC
 	PUSH	HL
 	LD	HL,COUNT
@@ -1983,7 +1866,7 @@ L1097:
 	LD	B,A
 	LD	A,' '
 	JR	Z,NOFIL
-BLNK:
+BLNK:				;Put in 3 blanks for each byte not present
 	CALL	LIST
 	CALL	LIST
 	CALL	LIST
@@ -1999,22 +1882,22 @@ NOFIL:
 	CALL	STRTLIN
 	POP	HL
 	POP	BC
-	JR	L1080
+	JR	NEXCD
 
 OUTLIN:
 	CALL	LIST
 	LD	A,(LSTFCB)
 	CP	'Z'
 	RET	Z
-	LD	HL,L1B0F
+	LD	HL,LINFLG
 	LD	A,(HL)
-	LD	(HL),0FFH
+	LD	(HL),-1
 	OR	A
-	JR	NZ,CRLF
+	JR	NZ,CRLF		;Output line only if first time
 OUTLN:
 	CALL	NEXTCHR
 	CALL	LIST
-	CP	10
+	CP	10		;Output until linefeed found
 	JR	NZ,OUTLN
 	RET
 
@@ -2022,76 +1905,77 @@ PRTCNT:
 	LD	HL,ERCNTM
 	CALL	PRINT
 	LD	HL,(ERRCNT)
-	CALL	L1362
-	CALL	L1384
+	CALL	CONV10
+	CALL	PRNT10
 CRLF:
 	LD	A,13
 	CALL	LIST
 	LD	A,10
 	JR	LIST
 
-L1108:
-	CALL	L1151
+DEFBYT:
+	CALL	FIXUP
 	EX	DE,HL
-	CALL	L055B
+	CALL	SIGNEXT		;See if in range +127 to -128
 	EX	DE,HL
-	JR	Z,L1123
+	JR	Z,OBJBTE	;If so, it's always OK
 	LD	A,D
-	OR	A
-	JR	Z,L1128
+	OR	A		;Check for range +255 to -256
+	JR	Z,CHKJMP
 	INC	A
-	JR	Z,L1128
-L111E:
-	LD	A,101
+	JR	Z,CHKJMP
+RNGERR:
+	LD	A,101		;Value out of range
 	LD	(ERR),A
-L1123:
+OBJBTE:
 	LD	A,E
-	JP	L107D
-L1128:
+	JP	OBJBT
+CHKJMP:
+;Check for short jump. If so, we're out of range; otherwise we're OK
 	LD	A,(COUNT)
-	DEC	A
-	JR	NZ,L1123
-	LD	A,(L1B10)
-	CP	0EBH
-	JR	Z,L111E
+	DEC	A		;Only one other byte on line?
+	JR	NZ,OBJBTE	;Can't be short jump if not
+	LD	A,(PREV)	;Get the first byte of this line
+	CP	0EBH		;Direct short jump?
+	JR	Z,RNGERR
 	AND	0FCH
-	CP	0E0H
-	JR	Z,L111E
+	CP	0E0H		;LOOP or JCXZ instruction?
+	JR	Z,RNGERR
 	AND	0F0H
-	CP	70H
-	JR	Z,L111E
-	JR	L1123
+	CP	70H		;Conditional jump?
+	JR	Z,RNGERR
+	JR	OBJBTE
 
-L1144:
-	CALL	L1151
+DEFWRD:
+	CALL	FIXUP
 	LD	A,E
-	CALL	L13BB
+	CALL	SAVCD
 	LD	A,D
-	JP	L107D
+	JP	OBJBT
 
-L1151:
+FIXUP:
 	PUSH	BC
-	LD	E,(HL)
+	LD	E,(HL)		;Get pointer to symbol
 	INC	HL
 	LD	D,(HL)
 	INC	HL
 	EX	DE,HL
-	LD	A,(HL)
+	LD	A,(HL)		;Whether symbol was defined
 	INC	HL
-	LD	C,(HL)
+	LD	C,(HL)		;Get symbol value
 	INC	HL
 	LD	B,(HL)
 	EX	DE,HL
-	LD	E,(HL)
+	LD	E,(HL)		;Get constant part
 	INC	HL
 	LD	D,(HL)
 	EX	DE,HL
-	ADD	HL,BC
+	ADD	HL,BC		;Add symbol value to constant part
 	POP	BC
 	EX	DE,HL
-	OR	A
+	OR	A		;See if symbol got defined
 	RET	NZ
-	LD	A,64H
+	LD	A,100		;Undefined - flag error
 	LD	(ERR),A
 	LD	DE,0
 	RET
@@ -2099,7 +1983,7 @@ L1151:
 STRTLIN:
 	XOR	A
 	LD	(ERR),A
-	LD	(L1B0F),A
+	LD	(LINFLG),A
 	LD	HL,(PC)
 	LD	A,H
 	CALL	PHEX
@@ -2111,18 +1995,18 @@ LIST:
 	PUSH	AF
 	LD	A,(LSTFCB)
 	CP	'Z'
-	JR	Z,L11ED
+	JR	Z,OUTRET
 	CP	'X'
-	JR	Z,L11F2
+	JR	Z,LSTCON
 	POP	AF
 	PUSH	AF
 	AND	7FH
 	PUSH	HL
 	LD	HL,(LSTPNT)
 	LD	(HL),A
-	CALL	L1546
+	CALL	INCBUF
 	LD	(LSTPNT),HL
-	JR	NZ,L11EC
+	JR	NZ,HAVSPC
 	LD	HL,LSTBUF
 	LD	(LSTPNT),HL
 	PUSH	DE
@@ -2135,15 +2019,15 @@ LIST:
 	CALL	5
 	POP	BC
 	POP	DE
-L11EC:
+HAVSPC:
 	POP	HL
-L11ED:
+OUTRET:
 	POP	AF
 	RET
-L11F2:
+LSTCON:
 	POP	AF
 	PUSH	AF
-	CALL	OUT
+	CALL	OUTA
 	POP	AF
 	RET
 
@@ -2155,34 +2039,41 @@ PHEX:
 	CALL	LHALF
 	JR	LIST
 
-L1214:
-	INC	A
-	JR	Z,L125B
+SPCFUN:
+	INC	A		;End of file?
+	JR	Z,FINI
 	INC	HL
-	LD	E,(HL)
+	LD	E,(HL)		;Get address
 	INC	HL
 	LD	D,(HL)
 	PUSH	HL
-	INC	A
-	JR	Z,L1253
-	INC	A
-	JR	Z,L124D
+	INC	A		;ORG?
+	JR	Z,DORG
+	INC	A		;PUT?
+	JR	Z,DPUT
+DDS:
+;Handle DS pseudo-op
 	LD	HL,(PC)
 	ADD	HL,DE
 	LD	(PC),HL
 	LD	HL,(HEXADD)
 	ADD	HL,DE
 	LD	(HEXADD),HL
-	JR	L1257
-L124D:
+	JR	SPEND
+
+DPUT:
+;Handle PUT pseudo-op
 	LD	(HEXADD),DE
-	JR	L1257
-L1253:
+	JR	SPEND
+
+DORG:
+;Handle ORG pseudo-op
 	LD	(PC),DE
-L1257:
+SPEND:
 	POP	HL
-	JP	L1080
-L125B:
+	JP	NEXCD
+
+FINI:
 	CALL	PRTCNT
 	LD	A,(HEXFCB)
 	CP	'Z'
@@ -2193,22 +2084,22 @@ L125B:
 	LD	A,':'
 	CALL	PUTCHR
 	LD	B,10
-L1276:
+HEXEND:
 	PUSH	BC
 	LD	A,'0'
 	CALL	PUTCHR
 	POP	BC
-	DJNZ	L1276
-	CALL	L14F4
-	CALL	NZ,L13B3
-	CALL	L13B3
+	DJNZ	HEXEND
+	CALL	HEXCRLF
+	CALL	NZ,HEXEOF
+	CALL	HEXEOF
 	LD	C,CLOSE
 	LD	DE,HEXFCB
 	CALL	SYSTEM
 SYMDMP:
 	LD	A,(SYMFLG)
 	CP	'S'
-	JR	NZ,L12B4
+	JR	NZ,ENDSYM
 	LD	HL,SYMMES
 	CALL	PRINT
 	LD	DE,(BASE)
@@ -2217,25 +2108,24 @@ SYMDMP:
 	JR	Z,EXIT
 	LD	HL,(HEAP)
 	LD	SP,HL
-	CALL	L12E5
-L12B4:
+	CALL	NODE
+ENDSYM:
 	LD	A,(LSTFCB)
 	CP	'X'
 	JR	Z,EXIT
 	CP	'Z'
-	JR	Z,L12CA
-	CALL	L12D6
+	JR	Z,ERRCON	;Print error count to console
+	CALL	LSTEOF
 	LD	DE,LSTFCB
 	LD	C,CLOSE
 	CALL	5
-L12CA:
+ERRCON:
 	LD	A,'X'
 	LD	(LSTFCB),A
 	CALL	PRTCNT
 EXIT:	JP	0
 	RET
-
-L12D6:
+LSTEOF:
 	LD	HL,(LSTPNT)
 	LD	DE,LSTBUF
 	OR	A
@@ -2243,9 +2133,9 @@ L12D6:
 	RET	Z
 	LD	A,1AH
 	CALL	LIST
-	JR	L12D6
+	JR	LSTEOF
 
-L12E5:
+NODE:
 	EX	DE,HL
 	PUSH	HL
 	LD	E,(HL)
@@ -2257,27 +2147,27 @@ L12E5:
 	LD	D,(HL)
 	LD	A,E
 	OR	D
-	CALL	NZ,L12E5
+	CALL	NZ,NODE
 	POP	HL
 	LD	B,(HL)
 	INC	HL
-	LD	A,0AH
+	LD	A,SYMWID
 	SUB	B
-	JR	NC,L1315
+	JR	NC,LENOK
 	LD	A,1
-L1315:
+LENOK:
 	LD	D,A
-L1317:
+WRTSYM:
 	LD	A,(HL)
 	INC	HL
 	CALL	LIST
-	DJNZ	L1317
+	DJNZ	WRTSYM
 	LD	B,D
 	INC	B
-	LD	A,20H
-L1329:
+	LD	A,' '
+OUTB:
 	CALL	LIST
-	DJNZ	L1329
+	DJNZ	OUTB
 	INC	HL
 	INC	HL
 	PUSH	HL
@@ -2297,13 +2187,13 @@ L1329:
 	LD	D,(HL)
 	LD	A,D
 	OR	E
-	JR	NZ,L12E5
+	JR	NZ,NODE
 	RET
 
-L1362:
-	LD	B,10H
+CONV10:
+	LD	B,16
 	LD	DE,0
-L1367:
+CONVLP:
 	ADD	HL,HL
 	LD	A,E
 	ADC	A,A
@@ -2314,64 +2204,64 @@ L1367:
 	DAA
 	LD	D,A
 	RL	C
-	DJNZ	L1367
+	DJNZ	CONVLP
 	RET
 
-L1384:
+PRNT10:
 	EX	DE,HL
-	LD	B,10H
+	LD	B,'0'-' '	;Enable leading zero suppression
 	LD	A,C
-	CALL	L13A0
+	CALL	LODIG
 	LD	A,H
-	CALL	L13AE
+	CALL	HIDIG
 	LD	A,H
-	CALL	L13A0
+	CALL	LODIG
 	LD	A,L
-	CALL	L13AE
+	CALL	HIDIG
 	LD	A,L
-	LD	B,0
-L13A0:
+	LD	B,0		;Don't suppress last digit
+LODIG:
 	CALL	LHALF
-L13A3:
-	CP	30H
-	JR	Z,L13A9
-	LD	B,0
-L13A9:
-	SUB	B
+DIGIT:
+	CP	'0'
+	JR	Z,SUPZ
+	LD	B,0		;Turn off zero suppression if not zero
+SUPZ:
+	SUB	B		;Convert leading zeros to blanks
 	JP	LIST
 
-L13AE:
+HIDIG:
 	CALL	UHALF
-	JR	L13A3
+	JR	DIGIT
 
-L13B3:
+HEXEOF:
 	LD	A,1AH
 	CALL	PUTCHR
-	JR	NZ,L13B3
+	JR	NZ,HEXEOF
 	RET
 
-L13BB:
-	LD	(L1B10),A
+SAVCD:
+	LD	(PREV),A
 	PUSH	HL
 	PUSH	BC
 	PUSH	AF
 	PUSH	DE
-	CALL	L144E
+	CALL	CODBYT
 	POP	DE
 	LD	HL,COUNT
 	INC	(HL)
 	LD	A,(HL)
 	CP	7
-	JR	NZ,L13E9
+	JR	NZ,NOEXT
 	LD	(HL),1
-	LD	A,20H
+	LD	A,' '
 	CALL	OUTLIN
-	LD	A,20H
+	LD	A,' '
 	LD	B,5
-L13E2:
+TAB:
 	CALL	LIST
-	DJNZ	L13E2
-L13E9:
+	DJNZ	TAB
+NOEXT:
 	POP	AF
 	CALL	PHEXB
 	POP	BC
@@ -2385,14 +2275,14 @@ L13E9:
 	RET
 
 REPERR:
-	OR	A		;Did an error occur?
+	OR	A
 	RET	Z
 	PUSH	AF
-	LD	HL,ERRMES	;Print "ERROR"
+	LD	HL,ERRMES
 	CALL	PRINT
 	POP	AF
 	CALL	PHEX
-	LD	HL,HEXSUF
+	LD	HL,ENDMES
 	CALL	PRINT
 	LD	HL,(ERRCNT)
 	INC	HL
@@ -2407,7 +2297,7 @@ PRINT:
 	INC	HL
 	JR	PRINT
 
-OUT:
+OUTA:
 	LD	E,A
 	LD	C,2
 SYSTEM:
@@ -2420,13 +2310,11 @@ SYSTEM:
 	POP	BC
 	RET
 
-L144E:
+CODBYT:
 	PUSH	AF
 	LD	A,(HEXFCB)
 	CP	'Z'
-	JR	NZ,L145E
-	JP	L11ED
-L145E:
+	JP	Z,OUTRET
 	LD	DE,(LASTAD)
 	LD	HL,(HEXADD)
 	LD	(LASTAD),HL
@@ -2477,7 +2365,7 @@ ENHEXL:
 	LD	B,A
 	CALL	UHALF
 	LD	(HL),A
-	CALL	L1546
+	CALL	INCBUF
 	LD	A,B
 	CALL	LHALF
 	LD	(HL),A
@@ -2488,7 +2376,7 @@ ENHEXL:
 	NEG
 	CALL	HEXBYT
 
-L14F4:
+HEXCRLF:
 	LD	A,13
 	CALL	PUTCHR
 	LD	A,10
@@ -2496,15 +2384,15 @@ L14F4:
 PUTCHR:
 	LD	HL,(HEXPNT)
 	LD	(HL),A
-	CALL	L1546
+	CALL	INCBUF
 	LD	(HEXPNT),HL
 	RET	NZ
 	PUSH	HL
-	LD	HL,L1B0E
+	LD	HL,SKPFLG
 	LD	A,(HL)
-	LD	(HL),0
+	LD	(HL),0		;Buffer filled, don't skip next time
 	POP	HL
-	OR	A
+	OR	A		;Both buffers filled?
 	RET	NZ
 	LD	C,SETDMA
 	EX	DE,HL
@@ -2531,11 +2419,11 @@ LHALF:
 	ADD	A,7
 	RET
 
-L1546:
+INCBUF:
 	INC	HL
 	PUSH	DE
 	PUSH	HL
-	LD	DE,HEXBUF+128
+	LD	DE,HEXBUF+BUFSIZ
 	OR	A
 	SBC	HL,DE
 	POP	HL
@@ -2543,7 +2431,7 @@ L1546:
 	RET	Z
 	PUSH	DE
 	PUSH	HL
-	LD	DE,LSTBUF+128
+	LD	DE,LSTBUF+BUFSIZ
 	OR	A
 	SBC	HL,DE
 	POP	HL
@@ -2551,22 +2439,18 @@ L1546:
 	RET	Z
 	PUSH	DE
 	PUSH	HL
-	LD	DE,L1B9B+128
+	LD	DE,HEXBUF+BUFSIZ+BUFSIZ
 	OR	A
 	SBC	HL,DE
 	POP	HL
 	POP	DE
 	RET	NZ
-	LD	HL,HEXBUF
+	LD	HL,HEXBUF	;Wrap back to first buffer
 	RET
 
 NONE:	DB	0
 
 ; 8086 MNEMONIC TABLE
-
-; This table is actually a sequence of subtables, each starting with a label.
-; The label signifies which mnemonics the subtable applies to--A3, for example,
-; means all 3-letter mnemonics beginning with A.
 
 A3:
 	DB	7
@@ -3067,19 +2951,6 @@ X4:
 
 
 OPTAB:
-; Table of pointers  to mnemonics. For each letter of the alphabet (the
-; starting letter of the mnemonic), there are 5 entries. Each entry
-; corresponds to a mnemonic whose length is 2, 3, 4, 5, and 6 characters
-; long, respectively. If there are no mnemonics for a given combination
-; of first letter and length (such as A-2), then the corresponding entry
-; points to NONE. Otherwise, it points to a place in the mnemonic table
-; for that type.
-
-; This table only needs to be modified if a mnemonic is added to a group
-; previously marked NONE. Change the NONE to a label made up of the first
-; letter of the mnemonic and its length, then add a new subsection to
-; the mnemonic table in alphabetical order.
-
 	DW	NONE
 	DW	A3
 	DW	NONE
@@ -3214,8 +3085,8 @@ OPTAB:
 HEADER:	DB	13,10,'Seattle Computer Products 8086 Assembler Version 2.00'
 	DB	13,10,'$'
 ERRMES:	DM	'***** ERROR no. '
-NOSPAC:	DB	13,10,'No directory space',13,10,'$'
-HEXSUF:	DM	'H',13,10
+NOSPAC:	DB	13,10,'No directory space',13,10,24H
+ENDMES:	DM	'H',13,10
 NOMEM:	DB	13,10,'Insufficient memory',13,10,'$'
 NOFILE:	DB	13,10,'File not found',13,10,'$'
 WRTERR:	DB	13,10,'Disk write error',13,10,'$'
@@ -3235,7 +3106,7 @@ PC:	DS	2
 OLDPC:	DS	2
 LABPT:	DS	2
 FLAG:	DS	1
-L1A98:	DS	1
+LONG:	DS	1
 ADDR:	DS	2
 ALABEL:	DS	2
 DATA:	DS	2
@@ -3261,19 +3132,18 @@ HEXADD:	DS	2
 LASTAD:	DS	2
 HEXCNT:	DS	1
 CHKSUM:	DS	1
-L1B0E:	DS	1
-L1B0F:	DS	1
-L1B10:	DS	1
+SKPFLG:	DS	1
+LINFLG:	DS	1
+PREV:	DS	1
 IFFLG:	DS	1
 CHKLAB:	DS	1
 LSTPNT:	DS	2
 ERRCNT:	DS	2
 LSTRET:	DS	2
 RETPT:	DS	2
-HEXBUF:	DS	128
-L1B9B:	DS	128
-LSTBUF:	DS	128
+HEXBUF:	DS	BUFSIZ+BUFSIZ
+LSTBUF:	DS	BUFSIZ
 	DS	50
 STACK:	EQU	$
 START:	EQU	$
-
+

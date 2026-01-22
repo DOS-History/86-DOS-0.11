@@ -45,9 +45,6 @@ where
 
 This assembler can only produce Intel HEX files for object code, therefore you must convert them to binary before they can be executed on the 8086. Under CP/M, this can be done using the <code>LOAD</code> command. If you are using CDOS, which does not have <code>LOAD</code>, you will have to use <code>DEBUG</code> to load the .HEX file to memory and <code>SAVE</code> to save the loaded pages as a disk file.
 
-> [!TIP]
-> Don't forget to rename the source files from <code>.ASM</code> to <code>.A86</code>.
-
 ## TRANS86
 This is a reconstruction of the SCP Z80 to 8086 Translator shipped together with ASM86. Like ASM86, original copies are long gone and this is the 8086 version from 86-DOS 0.11 translated back to Z80.
 

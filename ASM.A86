@@ -4,9 +4,7 @@
 
 SYMWID:	EQU	10
 FCB:	EQU	5CH
-BUFSIZ:	EQU	128	;Source code buffer
-LSTBUFSIZ:EQU	BUFSIZ	;List file buffer
-HEXBUFSIZ:EQU	BUFSIZ	;Hex file buffer
+BUFSIZ:	EQU	128
 EOL:	EQU	13	;ASCII carriage return
 OBJECT:	EQU	100H	;DEFAULT "PUT" ADDRESS
 
@@ -127,7 +125,6 @@ ENDJ:	JMP	END
 ENDLN:
 	XOR	AL,AL		;Flag no errors on line
 ENDLIN:
-;AL = error code for line. Stack depth unknown
 	MOV	SP,STACK
 	CALL	NEXLIN
 	JP	LOOP
@@ -236,10 +233,6 @@ NOMOD:
 
 
 MROPS:
-
-; Get two operands and check for certain types, according to flag byte
-; in CL. OP code in CH. Returns only if immediate operation.
-
 	PUSH	CX		;Save type flags
 	CALL	GETOP
 	PUSH	DX		;Save first operand
@@ -372,29 +365,6 @@ GETOP2:
 
 
 GETOP:
-
-; Get one operand. Operand may be a memory reference in brackets, a register,
-; or a constant. If a flag (such as "B" for byte operation) is encountered,
-; it is noted and processing continues to find the operand.
-;
-; On exit, AL (=DH) has the type of operand. Other information depends
-; on the actual operand:
-;
-; AL=DH=0  Memory Reference.  DL has the address mode properly prepared in
-; the 8086 R/M format (middle bits zero). The constant part of the address
-; is in ADDR. If an undefined label needs to be added to this, a pointer to
-; its information fields is in ALABEL, otherwise ALABEL is zero.
-;
-; AL=DH=1  Value. The constant part is in DATA. If an undefined label needs
-; to be added to this, a pointer to its information fields is in DLABEL,
-; otherwise DLABEL is zero. "$" and "RET" are in this class.
-;
-; AL=DH=2  8-bit Register. DL has the register number.
-;
-; AL=DH=3  16-bit Register. DL has the register number.
-;
-; AL=DH=4  Segment Register. DL has the register number.
-
 	CALL	GETSYM
 GETOP1:
 ;Enter here if we don't need a GETSYM first
@@ -451,16 +421,8 @@ FLG:
 
 
 GETVAL:
-
-; Expression analyzer. On entry, if AL=0 then do not allow base or index
-; registers. If AL=1, we are analyzing a memory reference, so allow base
-; and index registers, and compute addressing mode when done. The constant
-; part of the expression will be found in CON. If an undefined label is to
-; be added to this, a pointer to its information fields will be found in
-; UNDEF.
-
 	LAHF
-	XCHG	AX,BP		;Flag is kept in BP
+	XCHG	AX,BP
 	SAHF
 	PUSH	BX
 	MOV	BX,0
@@ -706,23 +668,6 @@ ERR30:	JNZ	ERR3
 
 
 GETSYM:
-
-; The lexical scanner. Used only in the operand field. Returns with the token
-; in SYM and AL, sometimes with additional info in BX or DX.
-;
-; AL=SYM=0  Undefined label. BX has pointer to information fields.
-;
-; AL=SYM=1  Constant (or defined label). DX has value.
-;
-; AL=SYM=2,3,4  8-bit register, 16-bit register, or segment register,
-; respectively. DL has register number.
-;
-; AL=SYM=5  A mode flag (such as "B" for byte operation). Also stored in
-; appropriate memory location--FLAG or LONG.
-;
-; All other values are the ASCII code of the character. Note that this may
-; never be a letter or number.
-
 	CALL	GETSY
 	MOV	AL,[SYM]
 	RET
@@ -1169,24 +1114,6 @@ EMPTY:
 
 
 CREATE:
-
-; Add a new node to the identifier tree. The identifier is at ID with
-; bit 7 of the last character set to one. The length of the identifier is
-; in LENID, which is ID-1.
-;
-; Node format:
-;	1. Length of identifier (1 byte)
-;	2. Identifier (1-80 bytes)
-;	3. Left link (2-byte pointer to alphabetically smaller identifiers)
-;	4. Right link (0 if none larger)
-;	5. Data field:
-;	   a. Defined flag (0=undefined, 1=defined)
-;	   b. Value (2 bytes)
-;
-; This routine returns with AL=zero and zero flag set (which indicates
-; on return from LOOKUP that it has not yet been defined), DX points
-; to start of new node, and BX points to data field of new node.
-
 	MOV	AL,[LENID]
 	ADD	AL,8		;Storage needed for the node
 	MOV	BX,[HEAP]
@@ -1432,8 +1359,6 @@ IMM:
 	RET
 
 PUT:
-;Save byte in AL as pure code, with intermediate code bits 00. AL and
-;DI destroyed, no other registers affected.
 	PUSH	BX
 	PUSH	CX
 	MOV	CH,0		;Flag as pure code
@@ -1443,7 +1368,6 @@ PUT:
 	RET
 
 GEN:
-;Save byte of code in AL, given intermediate code bits in bits 7&8 of CH.
 	CALL	PUTINC		;Save it and bump code pointer
 GEN1:
 	MOV	AL,[RELOC]
@@ -1490,9 +1414,6 @@ PUTCD1:	MOV	BX,[CODE]
 	RET
 
 PUTWOR:
-;Save the word value described by [DLABEL] and [DATA] as code. If defined,
-;two bytes of pure code will be produced. Otherwise, appropriate intermediate
-;code will be generated.
 	PUSH	CX
 	MOV	CH,80H
 	PUSH	DX
@@ -1500,7 +1421,6 @@ PUTWOR:
 	JP	PUTBW
 
 PUTBYT:
-;Same as PUTWOR, above, but for byte value.
 	PUSH	CX
 	MOV	CH,40H
 	PUSH	DX
@@ -1562,10 +1482,6 @@ NOUNDEF:
 PRETJ:	JP	PRET
 
 PUTADD:
-;Save complete addressing mode. Addressing mode is in AL; if this is a register
-;operation (>=C0), then the one byte will be saved as pure code. Otherwise,
-;the details of the addressing mode will be investigated and the optional one-
-;or two-byte displacement will be added, as described by [ADDR] and [ALABEL].
 	PUSH	CX
 	PUSH	DX
 	PUSH	BX
@@ -2289,10 +2205,6 @@ NOFIL:
 	JP	NEXCD
 
 OUTLIN:
-;Copy the source line to the ouput device. Line will be preceded by
-;assembler-generated line number. This routine may be called several times
-;on one line (once for each line of object code bytes), so it sets a flag
-;so the line will only be output on the first call.
 	CALL	LIST
 	MOV	AL,[LSTFCB]
 	CMP	AL,'Z'
@@ -2700,7 +2612,7 @@ CONVLP:
 
 PRNT10:
 	XCHG	DX,BX
-	MOV	CH,"0"-" "	;Enable leading zero suppression
+	MOV	CH,'0'-' '	;Enable leading zero suppression
 	MOV	AL,CL
 	CALL	LODIG
 	MOV	AL,BH
@@ -2714,7 +2626,7 @@ PRNT10:
 LODIG:
 	CALL	LHALF
 DIGIT:
-	CMP	AL,"0"
+	CMP	AL,'0'
 	JZ	SUPZ
 	MOV	CH,0		;Turn off zero suppression if not zero
 SUPZ:
@@ -2935,15 +2847,15 @@ LHALF:
 	CMP	AL,'9'+1
 	JC	RET
 	ADD	AL,7
-RET:	RET
+	RET
 
 INCBUF:
 	INC	BX
-	CMP	BX,HEXBUF+HEXBUFSIZ
+	CMP	BX,HEXBUF+BUFSIZ
 	JZ	RET
-	CMP	BX,LSTBUF+LSTBUFSIZ
+	CMP	BX,LSTBUF+BUFSIZ
 	JZ	RET
-	CMP	BX,HEXBUF2+HEXBUFSIZ
+	CMP	BX,HEXBUF+BUFSIZ+BUFSIZ
 	JNZ	RET
 	MOV	BX,HEXBUF		;Wrap back to first buffer
 	RET
@@ -2951,10 +2863,6 @@ INCBUF:
 NONE:	DB	0
 
 ; 8086 MNEMONIC TABLE
-
-; This table is actually a sequence of subtables, each starting with a label.
-; The label signifies which mnemonics the subtable applies to--A3, for example,
-; means all 3-letter mnemonics beginning with A.
 
 A3:
 	DB	7
@@ -3455,19 +3363,6 @@ X4:
 
 
 OPTAB:
-; Table of pointers  to mnemonics. For each letter of the alphabet (the
-; starting letter of the mnemonic), there are 5 entries. Each entry
-; corresponds to a mnemonic whose length is 2, 3, 4, 5, and 6 characters
-; long, respectively. If there are no mnemonics for a given combination
-; of first letter and length (such as A-2), then the corresponding entry
-; points to NONE. Otherwise, it points to a place in the mnemonic table
-; for that type.
-
-; This table only needs to be modified if a mnemonic is added to a group
-; previously marked NONE. Change the NONE to a label made up of the first
-; letter of the mnemonic and its length, then add a new subsection to
-; the mnemonic table in alphabetical order.
-
 	DW	NONE
 	DW	A3
 	DW	NONE
@@ -3599,7 +3494,8 @@ OPTAB:
 	DW	NONE
 	DW	NONE
 
-HEADER:	DB	13,10,'Seattle Computer Products 8086 Assembler Version 2.00',13,10,'$'
+HEADER:	DB	13,10,'Seattle Computer Products 8086 Assembler Version 2.00'
+	DB	13,10,'$'
 ERRMES:	DM	'***** ERROR no. '
 NOSPAC:	DB	13,10,'No directory space',13,10,24H
 ENDMES:	DM	'H',13,10
@@ -3657,9 +3553,8 @@ LSTPNT:	DS	2
 ERRCNT:	DS	2
 LSTRET:	DS	2
 RETPT:	DS	2
-HEXBUF:	DS	HEXBUFSIZ
-HEXBUF2:DS	HEXBUFSIZ
-LSTBUF:	DS	LSTBUFSIZ
+HEXBUF:	DS	BUFSIZ+BUFSIZ
+LSTBUF:	DS	BUFSIZ
 BC:	DS	2
 DE:	DS	2
 HL:	DS	2
@@ -3668,4 +3563,4 @@ IY:	DS	2
 	DS	50
 STACK:	EQU	$
 START:	EQU	$
-
+

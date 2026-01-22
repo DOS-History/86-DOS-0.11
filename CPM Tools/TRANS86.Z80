@@ -182,20 +182,20 @@ GETCH:
 	LD	DE,GETBUF	; Set `DMA address'.
 	LD	C,SETDMA
 	CALL	SYSTEM
-	LD	DE,FCB	; Read the next record from source file.
+	LD	DE,FCB		; Read the next record from source file.
 	LD	C,READ
 	CALL	SYSTEM
-	OR	A	; Entire record read OK?
-	LD	A,EOF	; Force end-of-file character in case
+	OR	A		; Entire record read OK?
+	LD	A,EOF		; Force end-of-file character in case
 	JR	NZ,TESEND	;  there is nothing in the record.
 	LD	HL,GETBUF	; Reset buffer pointer.
 GETIT:
-	LD	A,(HL)	; Get next character from buffer.
-	INC	HL	; Point to next character.
+	LD	A,(HL)		; Get next character from buffer.
+	INC	HL		; Point to next character.
 	LD	(GETPT),HL	; Save new pointer.
 TESEND:
 	LD	(CHAR),A
-	JR	NOTAF	; Pop registers and return.
+	JR	NOTAF		; Pop registers and return.
 LOAD:
 	CALL	DELIM
 	JR	Z,LOADOP
@@ -450,7 +450,7 @@ LD:
 	JP	Z,STAX
 ;If immediate move, check for byte memory reference
 	LD	A,(OP1)
-	CP	'['	;Memory reference?
+	CP	'['		;Memory reference?
 	JR	NZ,TWOOPS
 	LD	A,(OP1+1)	;Referencing IX as a word?
 	CP	RIX
@@ -458,7 +458,7 @@ LD:
 	CP	RIY
 	JR	Z,TWOOPS
 	LD	A,(OP2)
-	CP	20H	;Could be immediate?
+	CP	20H		;Could be immediate?
 	LD	A,9
 	CALL	NC,BFLAG	;Add "B,"
 	CALL	TRAN1
@@ -661,7 +661,7 @@ DAD:
 
 INCDEC:
 	LD	A,(OP1)
-	CP	RCX+1	;16-bit?
+	CP	RCX+1		;16-bit?
 	JP	NC,ONEOP
 	LD	HL,LAHF
 	CALL	OUTSTR
@@ -1123,4 +1123,4 @@ RCH:	DS	1
 RAL:	DS	1
 RIX:	DS	1
 RIY:	DS	1
-
+
