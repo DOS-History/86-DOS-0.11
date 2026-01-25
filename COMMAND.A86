@@ -1,25 +1,25 @@
-FCB	EQU	5CH
-DSKRESET EQU	13
-SETBASE	EQU	38
-SRCHFRST EQU	17
-SRCHNXT	EQU	18
-RENAM	EQU	23
-INCHAR	EQU	1
-GETFAT	EQU	27
-OPEN	EQU	15
-CLOSE	EQU	16
-MAKE	EQU	22
-DELETE	EQU	19
-RDBLK	EQU	39
-WRBLK	EQU	40
-SETDMA	EQU	26
-SELDRV	EQU	14
-GETDRV	EQU	25
-PRINTBUF EQU	9
-OUTCH	EQU	2
-INBUF	EQU	10
-RR	EQU	33
-SYSTEM	EQU	5
+FCB:	EQU	5CH
+DSKRESET:EQU	13
+SETBASE:EQU	38
+SRCHFRST:EQU	17
+SRCHNXT:EQU	18
+RENAM:	EQU	23
+INCHAR:	EQU	1
+GETFAT:	EQU	27
+OPEN:	EQU	15
+CLOSE:	EQU	16
+MAKE:	EQU	22
+DELETE:	EQU	19
+RDBLK:	EQU	39
+WRBLK:	EQU	40
+SETDMA:	EQU	26
+SELDRV:	EQU	14
+GETDRV:	EQU	25
+PRINTBUF:EQU	9
+OUTCH:	EQU	2
+INBUF:	EQU	10
+RR:	EQU	33
+SYSTEM:	EQU	5
 
 	ORG	100H
 	PUT	100H
@@ -87,7 +87,7 @@ GETCOM:
 	PUSH	SI
 COMTAIL:
 	LODB
-	STOB		;Move command tail to 80H
+	STOB			;Move command tail to 80H
 	CMP	AL,13
 	LOOPNZ	COMTAIL
 	NOT	CL
@@ -113,16 +113,17 @@ FINDCOM:
 	LAHF
 	ADD	SI,CX		;Bump to next position without affecting flags
 	SAHF
-	LODW		;Get address of command
+	LODW			;Get address of command
 	JNZ	FINDCOM
-	CALL	AX	;Call command
+	CALL	AX		;Call command
 	JMP	COMMAND
-SETDRV1:
-	JMP	SETDRV
+
+SETDRVJ:JMP	SETDRV
+
 DRVCHK:
 	DEC	DL		;Adjust for correct drive number
 	DEC	AL		;Check if anything else is on line
-	JZ	SETDRV1
+	JZ	SETDRVJ
 EXTERNAL:
 	MOV	AL,[SPECDRV]
 	MOV	[IDLEN],AL
@@ -308,7 +309,7 @@ TYPE:
 	MOV	AH,OPEN
 	INT	33
 	OR	AL,AL
-	JNZ	RET		; Not found
+	JNZ	RET		;Not found
 	MOV	[FCB+RR],0
 	MOV	CX,512
 	MOV	AH,RDBLK
@@ -354,11 +355,11 @@ CLRDSK:
 	MOV	DI,BX
 	MOV	AX,0FFFFH
 	STOW
-	STOB		;Fill first 3 bytes with FF
-	INC	AX	;AX = 0
+	STOB			;Fill first 3 bytes with FF
+	INC	AX		;AX = 0
 	SHR	CX
 	JNC	DOFILL
-	STOB		;Odd byte
+	STOB			;Odd byte
 DOFILL:
 	REP
 	STOW
@@ -378,7 +379,7 @@ COPY:
 	MOV	SI,FCB+10H
 	MOV	DI,DSTFCB
 	MOVB
-	CMP	B,[SI]," "		;Has file name?
+	CMP	B,[SI]," "	;Has file name?
 	JNZ	HASDSTNAM
 	MOV	SI,FCB+1
 HASDSTNAM:
@@ -446,16 +447,19 @@ ID:	DS	8
 COM:	DB	"COM"
 DSTFCB:	DS	36
 
-LINBUF:	DB	80H,1,13
+LINBUF:
+	DB	80H,1,13
 	DS	80H
 
-FILIFO:	DB	8," "
+FILIFO:
+	DB	8," "
 	DB	0
 	DB	12," ",4,0
 	DB	12," ",8,0
 	DB	0
 
-COMTAB:	DB	4,"DIR"
+COMTAB:
+	DB	4,"DIR"
 	DW	DIR
 	DB	7,"RENAME"
 	DW	RENAME
@@ -472,4 +476,4 @@ COMTAB:	DB	4,"DIR"
 	DB	0
 
 TPA:
-
+

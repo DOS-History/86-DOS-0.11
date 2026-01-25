@@ -3,9 +3,16 @@
 
 # 86-DOS and CP/M text files must use CRLF and have 0x1A EOF markers, we simply mark them as binary
 *.a86 binary
+*.A86 binary
 *.asm binary
+*.ASM binary
 *.com binary
+*.COM binary
 *.doc binary
+*.DOC binary
 *.hex binary
+*.HEX binary
 *.prn binary
+*.PRN binary
 *.z80 binary
+*.Z80 binary

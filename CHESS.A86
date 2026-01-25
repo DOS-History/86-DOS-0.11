@@ -11,10 +11,10 @@
 ;***********************************************************
 ; SYSTEM EQUATES
 ;***********************************************************
-INCHAR	EQU	1
-PRINTBUF EQU	9
-INBUF	EQU	10
-SYSTEM	EQU	5
+INCHAR:	EQU	1
+PRINTBUF:EQU	9
+INBUF:	EQU	10
+SYSTEM:	EQU	5
 
 ;***********************************************************
 ; EQUATES
@@ -96,7 +96,7 @@ START:
 	ORG	START+80H
 	PUT	START+80H
 TBASE:	EQU	START+100H
-;**********************************************************
+;***********************************************************
 ; DIRECT  --  Direction Table.  Used to determine the dir-
 ;             ection of movement of each piece.
 ;***********************************************************
@@ -108,7 +108,7 @@ DIRECT:	EQU	$-TBASE
 	DB	+10,+10,+11,+09
 	DB	-10,-10,-11,-09
 ;***********************************************************
-; DPOINT  --  Direction Table Pointer. Used to determine
+; DPOINT  --  Direction Table Pointer.  Used to determine
 ;             where to begin in the direction table for any
 ;             given piece.
 ;***********************************************************
@@ -116,7 +116,7 @@ DPOINT:	EQU	$-TBASE
 	DB	20,16,8,0,4,0,0
 
 ;***********************************************************
-; DCOUNT  --  Direction Table Counter. Used to determine
+; DCOUNT  --  Direction Table Counter.  Used to determine
 ;             the number of directions of movement for any
 ;             given piece.
 ;***********************************************************
@@ -124,7 +124,7 @@ DCOUNT:	EQU	$-TBASE
 	DB	4,4,8,4,4,8,8
 
 ;***********************************************************
-; PVALUE  --  Point Value. Gives the point value of each
+; PVALUE  --  Point Value.  Gives the point value of each
 ;             piece, or the worth of each piece.
 ;***********************************************************
 PVALUE:	EQU	$-TBASE-1
@@ -132,7 +132,7 @@ PVALUE:	EQU	$-TBASE-1
 
 ;***********************************************************
 ; PIECES  --  The initial arrangement of the first rank of
-;             pieces on the board. Use to set up the board
+;             pieces on the board.  Use to set up the board
 ;             for the start of the game.
 ;***********************************************************
 PIECES:	EQU	$-TBASE
@@ -140,7 +140,7 @@ PIECES:	EQU	$-TBASE
 
 ;***********************************************************
 ; BOARD   --  Board Array.  Used to hold the current position
-;             of the board during play. The board itself
+;             of the board during play.  The board itself
 ;             looks like:
 ;             FFFFFFFFFFFFFFFFFFFF
 ;             FFFFFFFFFFFFFFFFFFFF
@@ -156,15 +156,15 @@ PIECES:	EQU	$-TBASE
 ;             FFFFFFFFFFFFFFFFFFFF
 ;             The values of FF form the border of the
 ;             board, and are used to indicate when a piece
-;             moves off the board. The individual bits of
+;             moves off the board.  The individual bits of
 ;             the other bytes in the board array are as
 ;             follows:
 ;             Bit 7 -- Color of the piece
 ;                     1 -- Black
 ;                     0 -- White
 ;             Bit 6 -- Not used
-;             Bit 5 -- Not used
-;             Bit 4 --Castle flag for Kings only
+;             Bit 5 -- Pawn attack flag for ATTACK
+;             Bit 4 -- Castle flag for Kings only
 ;             Bit 3 -- Piece has moved flag
 ;             Bits 2-0 Piece type
 ;                     1 -- Pawn
@@ -180,16 +180,16 @@ BOARD:	EQU	$-TBASE
 BOARDA:	DS	120
 
 ;***********************************************************
-; ATKLIST -- Attack List. A two part array, the first
+; ATKLIST -- Attack List.  A two part array, the first
 ;            half for white and the second half for black.
 ;            It is used to hold the attackers of any given
 ;            square in the order of their value.
 ;
-; WACT   --  White Attack Count. This is the first
+; WACT   --  White Attack Count.  This is the first
 ;            byte of the array and tells how many pieces are
 ;            in the white portion of the attack list.
 ;
-; BACT   --  Black Attack Count. This is the eighth byte of
+; BACT   --  Black Attack Count.  This is the eighth byte of
 ;            the array and does the same for black.
 ;***********************************************************
 ATKLST:	DW	0,0,0,0,0,0,0
@@ -197,7 +197,7 @@ WACT:	EQU	ATKLST
 BACT:	EQU	ATKLST+7
 
 ;***********************************************************
-; PLIST   --  Pinned Piece Array. This is a two part array.
+; PLIST   --  Pinned Piece Array.  This is a two part array.
 ;             PLISTA contains the pinned piece position.
 ;             PLISTD contains the direction from the pinned
 ;             piece to the attacker.
@@ -207,41 +207,41 @@ PLISTD:	EQU	PLIST+10
 PLISTA:	DW	0,0,0,0,0,0,0,0,0,0
 
 ;***********************************************************
-; POSK    --  Position of Kings. A two byte area, the first
+; POSK    --  Position of Kings.  A two byte area, the first
 ;             byte of which hold the position of the white
 ;             king and the second holding the position of
 ;             the black king.
 ;
-; POSQ    --  Position of Queens. Like POSK,but for queens.
-;***********************************************************
+; POSQ    --  Position of Queens.  Like POSK,but for queens.
+;************************************************************
 POSK:	DB	24,95
 POSQ:	DB	14,94
 	DB	-1
 
-;***********************************************************
-; SCORE   --  Score Array. Used during Alpha-Beta pruning to
-;             hold the scores at each ply. It includes two
+;************************************************************
+; SCORE   --  Score Array.  Used during Alpha-Beta pruning to
+;             hold the scores at each ply.  It includes two
 ;             "dummy" entries for ply -1 and ply 0.
-;***********************************************************
+;************************************************************
 SCORE:	DW	0,0,0,0,0,0
 
-;***********************************************************
-; PLYIX   --  Ply Table. Contains pairs of pointers, a pair
-;             for each ply. The first pointer points to the
+;************************************************************
+; PLYIX   --  Ply Table.  Contains pairs of pointers, a pair
+;             for each ply.  The first pointer points to the
 ;             top of the list of possible moves at that ply.
 ;             The second pointer points to which move in the
 ;             list is the one currently being considered.
-;***********************************************************
+;************************************************************
 PLYIX:	DW	0,0,0,0,0,0,0,0,0,0
 	DW	0,0,0,0,0,0,0,0,0,0
 
-;***********************************************************
+;************************************************************
 ; STACK   --  Contains the stack for the program.
-;***********************************************************
+;************************************************************
 	ORG	START+2FFH
 STACK:
 
-;***********************************************************
+;************************************************************
 ; TABLE INDICES SECTION
 ;
 ; M1-M4   --  Working indices used to index into
@@ -250,10 +250,10 @@ STACK:
 ; T1-T3   --  Working indices used to index into Direction
 ;             Count, Direction Value, and Piece Value tables.
 ;
-; INDX1   --  General working indices. Used for various
+; INDX1   --  General working indices.  Used for various
 ; INDX2       purposes.
 ;
-; NPINS   --  Number of Pins. Count and pointer into the
+; NPINS   --  Number of Pins.  Count and pointer into the
 ;             pinned piece list.
 ;
 ; MLPTRI  --  Pointer into the ply table which tells
@@ -262,7 +262,7 @@ STACK:
 ; MLPTRJ  --  Pointer into the move list to the move that is
 ;             currently being processed.
 ;
-; SCRIX   --  Score Index. Pointer to the score table for
+; SCRIX   --  Score Index.  Pointer to the score table for
 ;             the ply being examined.
 ;
 ; BESTM   --  Pointer into the move list for the move that
@@ -270,12 +270,12 @@ STACK:
 ;             Alpha-Beta pruning process.
 ;
 ; MLLST   --  Pointer to the previous move placed in the move
-;             list. Used during generation of the move list.
+;             list.  Used during generation of the move list.
 ;
 ; MLNXT   --  Pointer to the next available space in the move
 ;             list.
 ;
-;***********************************************************
+;************************************************************
 	ORG	START+0
 	PUT	START+0
 M1:	DW	TBASE
@@ -295,10 +295,10 @@ BESTM:	DW	0
 MLLST:	DW	0
 MLNXT:	DW	MLIST
 
-;***********************************************************
+;************************************************************
 ; VARIABLES SECTION
 ;
-; KOLOR   --  Indicates computer's color. White is 0, and
+; KOLOR   --  Indicates computer's color.  White is 0, and
 ;             Black is 80H.
 ;
 ; COLOR   --  Indicates color of the side with the move.
@@ -340,7 +340,7 @@ MLNXT:	DW	MLIST
 ;             not on the move.
 ;
 ; MTRL    --  A measure of the difference in material
-;             currently on the board. It is the total value of
+;             currently on the board.  It is the total value of
 ;             the white pieces minus the total value of the
 ;             black pieces.
 ;
@@ -355,7 +355,7 @@ MLNXT:	DW	MLIST
 ; BMOVES  --  Our very tiny book of openings. Determines
 ;             the first move for the computer.
 ;
-;***********************************************************
+;************************************************************
 KOLOR:	DB	0
 COLOR:	DB	0
 P1:	DB	0
@@ -381,7 +381,7 @@ BMOVES:	DB	35,55,10H
 	DB	85,65,10H
 	DB	84,64,10H
 
-;***********************************************************
+;************************************************************
 ; MOVE LIST SECTION
 ;
 ; MLIST   --  A 2048 byte storage area for generated moves.
@@ -392,7 +392,7 @@ BMOVES:	DB	35,55,10H
 ;             in the move list.
 ;
 ; MLPTR   --  The Move List is a linked list of individual
-;             moves each of which is 6 bytes in length. The
+;             moves each of which is 6 bytes in length.  The
 ;             move list pointer(MLPTR) is the link field
 ;             within a move.
 ;
@@ -403,7 +403,7 @@ BMOVES:	DB	35,55,10H
 ;             board position to which the piece is moving.
 ;
 ; MLFLG   --  A field in the move entry which contains flag
-;             information. The meaning of each bit is as
+;             information.  The meaning of each bit is as
 ;             follows:
 ;             Bit 7  --  The color of any captured piece
 ;                        0 -- White
@@ -424,7 +424,7 @@ BMOVES:	DB	35,55,10H
 ; MLVAL   --  The field in the move entry which contains the
 ;             score assigned to the move.
 ;
-;***********************************************************
+;************************************************************
 	ORG	START+300H
 	PUT	START+300H
 MLIST:	DS	2048
@@ -435,11 +435,11 @@ MLTOP:	EQU	3
 MLFLG:	EQU	4
 MLVAL:	EQU	5
 
-;***********************************************************
+;************************************************************
 ; PROGRAM CODE SECTION
-;***********************************************************
+;************************************************************
 ; BOARD SETUP ROUTINE
-;***********************************************************
+;************************************************************
 ; FUNCTION:   To initialize the board array, setting the
 ;             pieces in their initial positions for the
 ;             start of the game.
@@ -449,7 +449,7 @@ MLVAL:	EQU	5
 ; CALLS:      None
 ;
 ; ARGUMENTS:  None
-;***********************************************************
+;*************************************************************
 INITBD:	MOV	CX,60		; Pre-fill board with -1's
 	MOV	DI,BOARDA
 	MOV	AX,-1
@@ -479,16 +479,16 @@ IB2:	MOV	AL,[SI-8]	; Fill non-border squares
 	MOV	B,[SI+3],94
 	RET
 
-;***********************************************************
+;************************************************************
 ; PATH ROUTINE
-;***********************************************************
+;************************************************************
 ; FUNCTION:   To generate a single possible move for a given
 ;             piece along its current path of motion including:
-
+;
 ;                Fetching the contents of the board at the new
 ;                position, and setting a flag describing the
 ;                contents:
-;                          0  --  New position is empty
+;                          0  --  New postion is empty
 ;                          1  --  Encountered a piece of the
 ;                                 opposite color
 ;                          2  --  Encountered a piece of the
@@ -504,7 +504,7 @@ IB2:	MOV	AL,[SI-8]	; Fill non-border squares
 ;
 ; ARGUMENTS:  Direction from the direction array giving the
 ;             constant to be added for the new position.
-;***********************************************************
+;************************************************************
 PATH:	ADD	[M2],CL		; Add direction constant to previous position
 	MOV	SI,[M2]		; Load board index
 	MOV	AL,[SI+BOARD]	; Get contents of board
@@ -523,9 +523,9 @@ PATH:	ADD	[M2],CL		; Add direction constant to previous position
 PA2:	MOV	AL,3		; Set off board flag
 	RET
 
-;***********************************************************
+;************************************************************
 ; PIECE MOVER ROUTINE
-;***********************************************************
+;************************************************************
 ; FUNCTION:   To generate all the possible legal moves for a
 ;             given piece.
 ;
@@ -537,7 +537,7 @@ PA2:	MOV	AL,3		; Set off board flag
 ;             ENPSNT
 ;
 ; ARGUMENTS:  The piece to be moved.
-;***********************************************************
+;*************************************************************
 MPIECE:	XOR	AL,[BX]		; Piece to move
 	AND	AL,87H		; Clear flag bit
 	CMP	AL,BPAWN	; Is it a black Pawn ?
@@ -624,7 +624,7 @@ MP36:	CALL	ENPSNT		; Try en passant capture
 ;                 ADJPTR
 ;
 ; ARGUMENTS:  --  None
-;***********************************************************
+;************************************************************
 ENPSNT:	MOV	AL,[M1]		; Set position of Pawn
 	TEST	B,[P1],080H	; Check color, is it white ?
 	JZ	EP5		; Yes - skip
@@ -665,9 +665,9 @@ EP10:	CMP	AL,10		; Is difference 10 ?
 	MOV	AL,[M3]		; Restore "from" position
 	MOV	[M1],AL
 
-;***********************************************************
+;************************************************************
 ; ADJUST MOVE LIST POINTER FOR DOUBLE MOVE
-;***********************************************************
+;************************************************************
 ; FUNCTION:   --  To adjust move list pointer to link around
 ;                 second move in double move.
 ;
@@ -679,16 +679,16 @@ EP10:	CMP	AL,10		; Is difference 10 ?
 ; CALLS:      --  None
 ;
 ; ARGUMENTS:  --  None
-;***********************************************************
+;*************************************************************
 ADJPTR:	MOV	BX,[MLLST]	; Get list pointer
 	SUB	BX,6		; Back up list pointer
 	MOV	[MLLST],BX	; Save list pointer
 	MOV	[BX],0		; Zero out link
 	RET			; Return
 
-;***********************************************************
+;************************************************************
 ; CASTLE ROUTINE
-;***********************************************************
+;************************************************************
 ; FUNCTION:   --  To determine whether castling is legal
 ;                 (Queen side, King side, or both) and add it
 ;                 to the move list if it is.
@@ -700,7 +700,7 @@ ADJPTR:	MOV	BX,[MLLST]	; Get list pointer
 ;                 ADJPTR
 ;
 ; ARGUMENTS:  --  None
-;***********************************************************
+;************************************************************
 CASTLE:	
 	TEST	B,[P1],008H	; Has king moved ?
 	JNZ	RET		; Yes - return
@@ -759,9 +759,9 @@ CA20:	MOV	AL,CH		; Scan Index
 	MOV	CX,01FCH	; Set Queen-side initial values
 	JMP	CA5		; Jump
 
-;***********************************************************
+;************************************************************
 ; ADMOVE ROUTINE
-;***********************************************************
+;************************************************************
 ; FUNCTION:   --  To add a move to the move list
 ;
 ; CALLED BY:  --  MPIECE
@@ -771,7 +771,7 @@ CA20:	MOV	AL,CH		; Scan Index
 ; CALLS:      --  None
 ;
 ; ARGUMENT:  --  None
-;***********************************************************
+;*************************************************************
 ADMOVE:	MOV	DX,[MLNXT]	; Addr of next loc in move list
 	MOV	BX,MLEND	; Address of list end
 	SUB	BX,DX		; Calculate difference
@@ -797,7 +797,7 @@ AM5:	XCHG	DX,DI		; Address of move area
 	MOV	[MLNXT],DI	; Save address for next move
 	MOV	DI,DX
 	RET			; Return
-AM10:	MOV	[BX],0		; Abort entry on table ovflow
+AM10:	MOV	[BX],0		; Abort entry  on table ovflow
 	RET
 
 ;***********************************************************
@@ -915,27 +915,27 @@ ATTACK:	PUSH	CX		; Save Register CX
 	CALL	ATKADJ		; Scan adjacent squares
 	MOV	AH,KNIGHT	; Check for a Knight
 	CALL	ATKADJ		; Scan adjacent squares
-	MOV	AH,20H		; Bit 5 set
+	MOV	AH,20H		; Pawn attack flag
 	MOV	AL,[BP+11]	; Get piece at +11
 	AND	AL,87H		; Clear flag bit
 	CMP	AL,BPAWN	; Black Pawn ?
 	JNZ	AT5		; No - jump
-	OR	[BP+11],AH	; Turn on bit 5
+	OR	[BP+11],AH	; Set Pawn attack flag
 AT5:	MOV	AL,[BP+9]	; Get piece at +9
 	AND	AL,87H		; Clear flag bit
 	CMP	AL,BPAWN	; Black Pawn ?
 	JNZ	AT10		; No - jump
-	OR	[BP+9],AH	; Turn on bit 5
+	OR	[BP+9],AH	; Set Pawn attack flag
 AT10:	MOV	AL,[BP-11]	; Get piece at -11
 	AND	AL,87H		; Clear flag bit
 	CMP	AL,PAWN		; White Pawn ?
 	JNZ	AT15		; No - jump
-	OR	[BP-11],AH	; Turn on bit 5
+	OR	[BP-11],AH	; Set Pawn attack flag
 AT15:	MOV	AL,[BP-9]	; Get piece at -9
 	AND	AL,87H		; Clear flag bit
 	CMP	AL,PAWN		; White Pawn ?
 	JNZ	AT20		; No - jump
-	OR	[BP-9],AH	; Turn on bit 5
+	OR	[BP-9],AH	; Set Pawn attack flag
 AT20:	MOV	SI,DIRECT+TBASE	; Load direction table
 	MOV	AH,BISHOP	; Check for a Bishop
 	CALL	ATKOUT		; Scan outwards
@@ -994,20 +994,20 @@ AO5:	MOV	DX,0C0H		; Bitmask for color flags
 	MOV	DI,BP		; Load pointer to piece
 AO10:	ADD	DI,BX		; Add direction constant
 	MOV	AL,[DI]		; Get attacking piece
-	AND	AL,27H		; Get piece type and bit 5
+	AND	AL,27H		; Get piece type and Pawn attack flag
 	JZ	AO10		; No piece, keep going
 	CMP	AL,AH		; Same as what we want ?
 	JZ	AO22		; Yes - jump
 	CMP	AL,QUEEN	; Queen ?
 	JZ	AO20		; Yes - jump
-	CMP	AL,PAWN+20H	; Pawn with bit 5 ?
+	CMP	AL,PAWN+20H	; Pawn with Pawn attack flag ?
 	JZ	AO21		; Yes - jump
 AO15:	LOOP	AO5		; Go check for next direction
 	RET			; Return
 AO20:	INC	DH		; Set Queen found flag
-AO21:	AND	B,[DI],0DFH	; Remove bit 5 for piece
+AO21:	AND	B,[DI],0DFH	; Remove Pawn attack flag
 AO22:	MOV	AL,[DI]		; Get piece
-	ADD	AL,80H		; CY if back, NC if white
+	ADD	AL,80H		; CY if black, NC if white
 	RCR	AL		; Bit 7 set if black, bit 6 if white
 	AND	DL,AL		; Keep only bits 6 and 7
 	JZ	AO15		; Nothing, next direction
@@ -1030,7 +1030,8 @@ AO22:	MOV	AL,[DI]		; Get piece
 ;                 the aforementioned routines as soon as an
 ;                 attacker of the opposite color is encountered.
 ;
-; CALLED BY:  --  ATTACK
+; CALLED BY:  --  ATKADJ
+;                 ATKOUT
 ;
 ; CALLS:      --  None
 ;
@@ -1046,16 +1047,16 @@ ATKCHK:	MOV	AL,[DI]		; Get piece
 	MOV	AX,0DFFFH	; FF (border) in AL and DF in AH
 	CMP	[BP+9],AL	; Is +9 border ?
 	JZ	ACK5		; Yes, jump
-	AND	[BP+9],AH	; Remove bit 5 for piece
+	AND	[BP+9],AH	; Remove Pawn attack flag
 ACK5:	CMP	[BP+11],AL	; Is +11 border ?
 	JZ	ACK6		; Yes - jump
-	AND	[BP+11],AH	; Remove bit 5 for piece
+	AND	[BP+11],AH	; Remove Pawn attack flag
 ACK6:	CMP	[BP-9],AL	; Is -9 border ?
 	JZ	ACK7		; Yes - jump
-	AND	[BP-9],AH	; Remove bit 5 for piece
+	AND	[BP-9],AH	; Remove Pawn attack flag
 ACK7:	CMP	[BP-11],AL	; Is -11 border ?
 	JZ	ACK8		; Yes - jump
-	AND	[BP-11],AH	; Remove bit 5 for piece
+	AND	[BP-11],AH	; Remove Pawn attack flag
 ACK8:	MOV	AL,1		; Set attacker found flag
 	POP	CX		; Restore CX reg
 	RET			; Return from ATTACK
@@ -2304,4 +2305,4 @@ IY:	DS	2
 BC:	DS	2
 DE:	DS	2
 HL:	DS	2
-
+

@@ -1,18 +1,18 @@
-FCB	EQU	5CH
-RENAM	EQU	23
-OPEN	EQU	15
-CLOSE	EQU	16
-MAKE	EQU	22
-DELFIL	EQU	19
-RDBLK	EQU	39
-WRBLK	EQU	40
-SETDMA	EQU	26
-PRINTBUF EQU	9
-OUTCH	EQU	2
-INBUF	EQU	10
-RR	EQU	33
+FCB:	EQU	5CH
+RENAM:	EQU	23
+OPEN:	EQU	15
+CLOSE:	EQU	16
+MAKE:	EQU	22
+DELFIL:	EQU	19
+RDBLK:	EQU	39
+WRBLK:	EQU	40
+SETDMA:	EQU	26
+PRINTBUF:EQU	9
+OUTCH:	EQU	2
+INBUF:	EQU	10
+RR:	EQU	33
 
-PROMPT	EQU	"*"
+PROMPT:	EQU	"*"
 
 	ORG	100H
 	PUT	100H
@@ -198,15 +198,12 @@ MAXLIN:
 	RET
 
 
-COMTAB	DB	"SFDLIE",13
+COMTAB:	DB	"SFDLIE",13
 
-NUMCOM	EQU	$-COMTAB
+NUMCOM:	EQU	$-COMTAB
 
-;-----------------------------------------------------------------------;
-;	Carefull changing the order of the next two tables. They are
-;      linked and chnges should be be to both.
-
-TABLE	DW	NOCOM	;No command--edit line
+TABLE:
+	DW	NOCOM	;No command--edit line
 	DW	ENDED
 	DW	INSERT
 	DW	LIST
@@ -668,14 +665,14 @@ PARAM2:	DS	2
 QFLG:	DS	1
 HAVEOF:	DS	1
 OLDLEN:	DS	1
-CURRENT: DS	2
-POINTER: DS	2
+CURRENT:DS	2
+POINTER:DS	2
 LAST:	DS	2
 ENDTXT:	DS	2
 COMBUF:	DS	2+128
-EDITBUF: DS	2+255
+EDITBUF:DS	2+255
 	DS	40
 	ALIGN
 STACK:
 START:
-
+

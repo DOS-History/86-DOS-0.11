@@ -13,35 +13,38 @@
 ; INTBASE+18H:	BIOS DISK WRITE
 ; INTBASE+40H:	Long jump to CALL entry point
 
-ESCCH	EQU	1BH
-CANCEL	EQU	"X"-"@"		;Cancel with Ctrl-X
 
-MAXCALL	EQU	36
-MAXCOM	EQU	40
-INTBASE	EQU	80H
-INTTAB	EQU	20H
-ENTRYPOINTSEG	EQU	0CH
-ENTRYPOINT	EQU	INTBASE+40H
-CONTC	EQU	INTTAB+3
-EXIT	EQU	INTBASE+8
-LONGJUMP EQU	0EAH
-LONGCALL EQU	9AH
-SAVEXIT	EQU	10
+MAXCALL:EQU	36
+MAXCOM:	EQU	40
+ESCCH:	EQU	1BH
+INTBASE:EQU	80H
+INTTAB:	EQU	20H
+ENTRYPOINTSEG:	EQU	0CH
+ENTRYPOINT:	EQU	INTBASE+40H
+CONTC:	EQU	INTTAB+3
+EXIT:	EQU	INTBASE+8
+LONGJUMP:EQU	0EAH
+LONGCALL:EQU	9AH
+MAXDIF:	EQU	0FFFH
+SAVEXIT:EQU	10
 
 ; Field definition for FCBs
 
-FNAME	EQU	0	;Drive code and name
-EXTENT	EQU	12
-ENTPOS	EQU	16	;Position of entry in directory
-DRVBP	EQU	18	;BP for SEARCH FIRST and SEARCH NEXT
-FIRCLUS	EQU	20	;First cluster of file
-LSTCLUS	EQU	22	;Last cluster accessed
-FILSIZ	EQU	24	;Size of file in records
-CLUSPOS	EQU	26	;Position of last cluster accessed
-FLSFLG	EQU	28	;Flush flag
-SIZCHG	EQU	29	;Size change flag
-NR	EQU	32	;Next record
-RR	EQU	33	;Random record
+	ORG	0
+	DS	12		;Drive code and name
+EXTENT:	DS	4
+ENTPOS:	DS	2		;Position of entry in directory
+DRVBP:	DS	2		;BP for SEARCH FIRST and SEARCH NEXT
+FIRCLUS:DS	2		;First cluster of file
+LSTCLUS:DS	2		;Last cluster accessed
+FILSIZ:	DS	2		;Size of file in records
+CLUSPOS:DS	2		;Position of last cluster accessed
+DIRTYFIL:DS	1		;File has been written to if <>0
+SIZCHG:	DS	1		;Directory needs update if <>0
+	ORG	32
+NR:	DS	1		;Next record
+RR:	DS	3		;Random record
+
 
 ; Description of 16-byte directory entry (same as returned by SEARCH FIRST
 ; and SEARCH NEXT, functions 17 and 18).
@@ -51,53 +54,43 @@ RR	EQU	33	;Random record
 ;    0		11	File name and extension ( 0E5H if empty)
 ;   11		 2	First allocation unit ( < 4080 )
 ;   13		 3	File size, in bytes (LSB first, 24 bits max.)
-;
-; The File Allocation Table uses a 12-bit entry for each allocation unit on
-; the disk. These entries are packed, two for every three bytes. The contents
-; of entry number N is found by 1) multiplying N by 1.5; 2) adding the result
-; to the base address of the Allocation Table; 3) fetching the 16-bit word at
-; this address; 4) If N was odd (so that N*1.5 was not an integer), shift the
-; word right four bits; 5) mask to 12 bits (AND with 0FFF hex). Entry number
-; zero is used as an end-of-file trap in the OS. Entry 1 is reserved for
-; future use. The first available allocation unit is assigned entry number
-; two, and even though it is the first, is called cluster 2. Entries of 0FFFH
-; are end of file marks; entries of zero are unallocated. Otherwise, the
-; contents of a FAT entry is the number of the next cluster in the file.
 
 
 ; Field definition for Drive Parameter Block
 
-DEVNUM	EQU	0	;I/O driver number
-SECSIZ	EQU	1	;Size of physical sector in records
-CLUSMSK	EQU	2	;Records/cluster - 1
-CLUSSHFT EQU	3	;Log2 of records/cluster
-FIRFAT	EQU	4	;Starting record of FATs
-FATSIZ	EQU	6	;Number of records occupied by FAT
-FATCNT	EQU	7	;Number of FATs for this drive
-FIRDIR	EQU	8	;Starting record of directory
-DIRSIZ	EQU	10	;Number of records occupied by directory
-FIRREC	EQU	11	;First record of first cluster
-MAXCLUS	EQU	13	;Number of clusters on drive + 1
-DIRTY	EQU	15	;Whether FAT is dirty
-FAT	EQU	16	;Pointer to start of FAT
+	ORG	0
+DRVNUM:	DS	1		;Drive number
+SECSIZ:	DS	1		;Size of physical sector in records
+CLUSMSK:DS	1		;Records/cluster - 1
+CLUSSHFT:DS	1		;Log2 of records/cluster
+FIRFAT:	DS	2		;Starting record of FATs
+FATSIZ:	DS	1		;Number of records occupied by FAT
+FATCNT:	DS	1		;Number of FATs for this drive
+FIRDIR:	DS	2		;Starting record of directory
+DIRSIZ:	DS	1		;Number of records occupied by directory
+FIRREC:	DS	2		;First record of first cluster
+MAXCLUS:DS	2		;Number of clusters on drive + 1
+DIRTYFAT:DS	1		;-1=FAT has been changed
+FAT:	DS	2		;Start of FAT
 
-DPBSIZ	EQU	18	;Size of the structure in bytes
+DPBSIZ:	EQU	$
 
 
-; BOIS entry point definitions
+; BIOS entry point defintions
 
-BIOSSEG	EQU	40H
+BIOSSEG:	EQU	40H
+		ORG	0
+		DS	3
+BIOSSTAT:	DS	3
+BIOSIN:		DS	3
+BIOSOUT:	DS	3
+BIOSPRINT:	DS	3
+BIOSAUXIN:	DS	3
+BIOSAUXOUT:	DS	3
+BIOSREAD:	DS	3
+BIOSWRITE:	DS	3
+BIOSFLUSH:	DS	3
 
-BIOSINIT	EQU	0	;Reserve room for jump to init code
-BIOSSTAT	EQU	3	;Console input status check
-BIOSIN		EQU	6	;Get console character
-BIOSOUT		EQU	9	;Output console character
-BIOSPRINT	EQU	12	;Output to printer
-BIOSAUXIN	EQU	15	;Get byte from auxilliary
-BIOSAUXOUT	EQU	18	;Output byte to auxilliary
-BIOSREAD	EQU	21	;Disk read
-BIOSWRITE	EQU	24	;Disk write
-BIOSFLUSH	EQU	27	;Disk buffer flush
 
 ; Start of code
 
@@ -106,55 +99,56 @@ BIOSFLUSH	EQU	27	;Disk buffer flush
 
 	JMP	DOSINIT
 
-ESCTAB: 
-	DB	"SC"	;Copy one character from template
-	DB	"VN"	;Skip over one character in template
-	DB	"TA"	;Copy up to specified character
-	DB	"WB"	;Skip up to specified character
-	DB	"UH"	;Copy rest of template
-	DB	"HH"	;Kill line with no change in template (Ctrl-X)
-	DB	"RM"	;Cancel line and update template
-	DB	"DD"	;Backspace (same as Ctrl-H)
-	DB	"P@"	;Enter Insert mode
-	DB	"QL"	;Exit Insert mode
-	DB	1BH,1BH	;Escape sequence to represent escape character
-	DB	ESCCH,ESCCH
+ESCTAB:	
+	DB	"SC"	;Copy one char
+	DB	"VN"	;Skip one char
+	DB	"TA"	;Copy to char
+	DB	"WB"	;Skip to char
+	DB	"UH"	;Copy line
+	DB	"HH"	;Kill line (no change in template)
+	DB	"RM"	;Reedit line (new template)
+	DB	"DD"	;Backspace
+	DB	"P@"	;Enter insert mode
+	DB	"QL"	;Exit insert mode
+	DB	ESCCH,ESCCH	;Escape character
+	DB	ESCCH,ESCCH	;End of table
 
-ESCTABLEN EQU	$-ESCTAB
-HEADER	DB	13,10,"86-DOS version 0.11"
+ESCTABLEN:EQU	$-ESCTAB
+
+HEADER:	DB	13,10,"86-DOS version 0.11"
 	DB	13,10
 	DB	"Copyright 1980 Seattle Computer Products, Inc.",13,10,"$"
 
 DOSINIT:
-	CLI
-	CLD
+	DI
+	UP
 	MOV	AX,CS
 	MOV	ES,AX
-	LODB			;Get no. of drives & no. of I/O drivers
+	LODB
 	CBW
 	MOV	CX,AX
 	SEG	CS
-	MOV	[NUMIO],AL
+	MOV	[NUMDRV],AL
 	MOV	DI,AX
 	SHL	DI
-	MOV	AH,DPBSIZ	;Size of DPB
+	MOV	AH,DPBSIZ
 	MUL	AX,AH
 	MOV	BX,DRVTAB
-	ADD	DI,BX		;Point to first DPB
+	ADD	DI,BX
 	ADD	AX,DI
-	MOV	BP,AX		;Point to first FAT
+	MOV	BP,AX
 	SEG	CS
 	MOV	[FATBASE],AX
 PERDEV:
 	SEG	CS
-	MOV	[BX],DI		;Store DPB pointer to table entry
+	MOV	[BX],DI
 	INC	BX
 	INC	BX
 	MOV	AL,CH
-	STOB			;DEVNUM
-	LODW			;Get pointer to DPT
-	PUSH	SI		;Save INITTAB pointer
-	MOV	SI,AX		;Load DPT
+	STOB			;DRVNUM
+	LODW			;Pointer to DPT
+	PUSH	SI
+	MOV	SI,AX
 	MOVB			;SECSIZ
 	LODB
 	DEC	AL
@@ -167,7 +161,7 @@ FIGSHFT:
 	MOV	AL,AH
 	STOB			;CLUSSHFT
 	LODW
-	STOW			;FIRFAT
+	STOW			;FIRFAT (= number of reserved records)
 	MOV	DX,AX
 	LODB
 	STOB			;FATSIZ
@@ -190,7 +184,7 @@ FIGSHFT:
 	STOW			;MAXCLUS
 	XOR	AL,AL
 	STOB
-	POP	SI
+	POP	SI		;Restore pointer to init. table
 	LODW			;Allocation table displacement
 	SEG	CS
 	ADD	AX,[FATBASE]
@@ -198,7 +192,7 @@ FIGSHFT:
 	MOV	DL,0
 	SHR	DX		;FAT size in bytes
 	ADD	AX,DX
-	CMP	AX,BP
+	CMP	AX,BP		;Bigger than already allocated
 	JBE	SMFAT
 	MOV	BP,AX
 SMFAT:
@@ -227,21 +221,21 @@ SMFAT:
 	STOW
 	MOV	AX,BIOSSEG
 	STOW
-	STOW			;Add 2 to DI
+	STOW	;Add 2 to DI
 	STOW
 	MOV	[INTBASE+18H],BIOSWRITE
 	MOV	DX,CS
 	MOV	DS,DX
-	ADD	DX,BP		;Next free segment
-	MOV	[DMAADD],128
+	ADD	DX,BP
+	MOV	[DMAADD],80H
 	MOV	[DMAADD+2],DX
 	MOV	AX,[DRVTAB]
-	MOV	[CURDRV],AX
-	MOV	CX,DX		;Start scanning just after DOS
+	MOV	[CURDRVPT],AX
+	MOV	CX,DX
 	MOV	BX,0FH
 MEMSCAN:
 	INC	CX
-	JZ	SETEND
+	JZ	HAVMEM
 	MOV	DS,CX
 	MOV	AL,[BX]
 	NOT	AL
@@ -250,8 +244,7 @@ MEMSCAN:
 	NOT	AL
 	MOV	[BX],AL
 	JZ	MEMSCAN
-
-SETEND:
+HAVMEM:
 	SEG	CS
 	MOV	[ENDMEM],CX
 	XOR	CX,CX
@@ -282,7 +275,7 @@ ENTRY:	;System call entry point and dispatcher
 	SEG	CS
 	POP	[TEMP]		;IP from the CALL 5
 	PUSHF			;Start re-ordering the stack
-	CLI
+	DI
 	PUSH	AX		;Save segment
 	SEG	CS
 	PUSH	[TEMP]		;Stack now ordered as if INT had been used
@@ -300,7 +293,7 @@ SAVREGS:
 	POP	[TEMP]
 	MOV	SP,CS
 	MOV	SS,SP
-	MOV	SP,SSSAVE
+	MOV	SP,STACK
 	PUSH	ES
 	PUSH	DS
 	PUSH	BP
@@ -313,7 +306,7 @@ SAVREGS:
 	MOV	BL,AH
 	MOV	BH,0
 	SHL	BX
-	CLD
+	UP
 	SEG	CS
 	CALL	[BX+DISPATCH]
 	SEG	CS
@@ -331,8 +324,10 @@ SAVREGS:
 	SEG	CS
 	MOV	SP,[SPSAVE]
 	IRET
+
+DISPATCH:
 ; Standard Functions
-DISPATCH DW	ABORT		;0
+	DW	ABORT		;0
 	DW	CONIN
 	DW	CONOUT
 	DW	READER
@@ -344,7 +339,7 @@ DISPATCH DW	ABORT		;0
 	DW	PRTBUF
 	DW	BUFIN		;10
 	DW	CONSTAT
-	DW	GETVER
+	DW	VERSION
 	DW	DSKRESET
 	DW	SELDSK
 	DW	OPEN		;15
@@ -357,10 +352,10 @@ DISPATCH DW	ABORT		;0
 	DW	CREATE
 	DW	RENAME
 	DW	INUSE
-	DW	GETDRV		;25
+	DW	CURDRV		;25
 	DW	SETDMA
 	DW	GETFATPT
-	DW	GETFATPTDL
+	DW	WRTPROT
 	DW	GETRDONLY
 	DW	SETATTRIB	;30
 	DW	GETDSKPT
@@ -375,15 +370,16 @@ DISPATCH DW	ABORT		;0
 	DW	BLKRD
 	DW	BLKWRT		;40
 
+VERSION:
 GETIO:
 SETIO:
-GETVER:
-GETFATPTDL:
+WRTPROT:
 GETRDONLY:
 SETATTRIB:
 USERCODE:
 	MOV	AL,0
 	RET
+
 
 READER:
 	CALL	BIOSAUXIN,BIOSSEG
@@ -423,7 +419,7 @@ HAVCLUS:
 	AND	DI,0FFFH
 	RET
 HURTFAT:
-	MOV	SI,BADFAT
+	MOV	SI,BADMES
 	CALL	OUTMES
 	JMP	ERROR
 
@@ -460,8 +456,7 @@ PACKIN:
 	MOV	[BX],DI
 	RET
 
-
-GETNAME:
+GETFILE:
 
 ; Inputs:
 ;	DS,DX point to FCB
@@ -475,15 +470,15 @@ GETNAME:
 ;	BP = Base of drive parameters
 ;	DS = CS
 ;	ES = CS
-;	AX = Directory record number
+;	AL = Directory record number
 ;	BX = Pointer into directory buffer
+;	SI = Pointer to First Cluster field in directory entry
 ;	[DIRBUF] has directory record with match
 ;	[NAME1] has file name
 ; All other registers destroyed.
 
-
 	CALL	MOVNAME
-	JC	RET
+	JC	RET		;Bad file name?
 FINDNAME:
 	MOV	AX,CS
 	MOV	DS,AX
@@ -504,7 +499,7 @@ NDIRREC:
 	RET
 
 NEXTENT:
-	Add	BX,16
+	ADD	BX,16
 	CMP	BX,DIRBUF+127
 	JA	RET
 	CMP	B,[BX],0E5H
@@ -522,11 +517,11 @@ WILDCRD:
 
 
 DELETE:	; System call 19
-	CALL	GETNAME
+	CALL	GETFILE
 	JC	ERRET
 	PUSH	AX
 	PUSH	BX
-	CALL	LOADFAT
+	CALL	FATREAD
 	POP	BX
 DELFILE:
 	MOV	B,[BX],0E5H
@@ -572,9 +567,9 @@ RENFIL:
 NEWNAM:
 	LODB
 	CMP	AL,"?"
-	JZ	SKIPLET
+	JZ	NOCHG
 	MOV	[DI],AL
-SKIPLET:
+NOCHG:
 	INC	DI
 	LOOP	NEWNAM
 	CALL	NEXTENT
@@ -611,12 +606,12 @@ MOVNAME:
 	MOV	SI,DX
 	LODB
 	SEG	ES
-	CMP	[NUMIO],AL
+	CMP	[NUMDRV],AL
 	JC	RET
 	CBW
 	XCHG	AX,BP
 	SHL	BP
-	MOV	BP,[BP+CURDRV]
+	MOV	BP,[BP+CURDRVPT]
 LODNAME:
 ; This entry point copies a file name from DS,SI
 ; to ES,DI converting to upper case.
@@ -624,12 +619,12 @@ LODNAME:
 MOVCHK:
 	LODB
 	AND	AL,7FH
-	CMP	AL,"a"-1
-	JLE	STOLET
-	AND	AL,5FH		;Convert to upper case
-STOLET:
-	CMP	AL," "
-	JB	RET
+	CMP	AL,60H
+	JLE	CASEOK
+	AND	AL,5FH
+CASEOK:
+	CMP	AL,20H
+	JC	RET
 	STOB
 	LOOP	MOVCHK
 	RET
@@ -637,42 +632,47 @@ STOLET:
 OPEN:	;System call 15
 	PUSH	DX
 	PUSH	DS
-	CALL	GETNAME
-OPENNAM:
+	CALL	GETFILE
+DOOPEN:
+; Enter here to perform OPEN on file already found
+; in directory. DS=ES=CS, BX points to directory
+; entry in DIRBUF, and the top of the stack has the
+; address and segment of the FCB to be opened. This
+; entry point is used by CREATE.
 	POP	ES
 	POP	DI
 	JC	ERRET
-	MOV	AH,[BP+DEVNUM]
+	MOV	AH,[BP+DRVNUM]
 	INC	AH
 	SEG	ES
 	MOV	[DI],AH
 	SEG	ES
-	MOV	[DI+EXTENT],0
-	ADD	DI,16
+	MOV	[DI+EXTENT],0	;Set extent field to 0
+	ADD	DI,16		;Point to entry pos. field
 	MOV	CX,BX
 	SUB	CX,DIRBUF
 	MOV	AH,CL
-	STOW			;ENTPOS
+	STOW			;directory location
 	MOV	AX,BP
-	STOW			;DRVBP
+	STOW			;pointer to driver parameters
 	LEA	SI,[BX+11]
-	LODW
-	STOW			;FIRCLUS
-	STOW			;LSTCLUS
+	LODW			;Get starting cluster
+	STOW			; first cluster
+	STOW			; last cluster accessed
 	LODB
 	SHL	AL
 	LODW
 	RCL	AX
-	STOW			;FILSIZ
+	STOW			; size of file in records
 	XOR	AX,AX
-	STOW			;CLUSPOS
-	STOW			;FLSFLG, SIZCHG
+	STOW			; position of last cluster
+	STOW			; file not dirty
 
-LOADFAT:
-	TEST	B,[BP+DIRTY],-1
+FATREAD:
+	TEST	B,[BP+DIRTYFAT],-1
 	JNZ	RET
 	CALL	FIGFAT
-READFAT:
+NEXTFAT:
 	PUSH	DX
 	PUSH	CX
 	PUSH	BX
@@ -683,27 +683,32 @@ READFAT:
 	POP	BX
 	POP	CX
 	POP	DX
-	JNZ	FATERR
+	JNZ	BADFAT
 	SUB	AL,[BP+FATCNT]
 	JZ	RET
 	NEG	AL
+;{Insert error code here. AL=number of bad fats.
+;Since one good FAT was read, should include option
+;to rewrite all FATs.}
 	JP	FATWRT
-FATERR:
+
+BADFAT:
 	ADD	DX,CX
 	DEC	AL
-	JNZ	READFAT
+	JNZ	NEXTFAT
 	POP	BP
-	MOV	SI,ALLBAD
+;{Insert error code here. All FATs on drive are bad.}
+	MOV	SI,BADFATMES
 	CALL	HARDERR
-	JP	LOADFAT
+	JP	FATREAD
 
 CLOSE:	;System call 16
 	MOV	DI,DX
-	TEST	B,[DI+FLSFLG],-1
+	TEST	B,[DI+DIRTYFIL],-1
 	JZ	NOFLSH
 	PUSH	DI
 	MOV	BP,[DI+DRVBP]
-	MOV	AL,[BP+DEVNUM]
+	MOV	AL,[BP+DRVNUM]
 	CALL	BIOSFLUSH,BIOSSEG
 	POP	DI
 NOFLSH:
@@ -712,7 +717,7 @@ NOFLSH:
 	MOV	DX,DI
 	PUSH	DX
 	PUSH	DS
-	CALL	GETNAME
+	CALL	GETFILE
 	POP	ES
 	POP	DI
 	JC	BADCLOSE
@@ -736,7 +741,8 @@ NOFLSH:
 
 CHKFATWRT:
 ; Do FATWRT only if FAT is dirty
-	TEST	B,[BP+DIRTY],-1
+
+	TEST	B,[BP+DIRTYFAT],-1
 	JZ	OKRET
 
 FATWRT:
@@ -746,13 +752,13 @@ FATWRT:
 ;	BP = Base of drive parameter table
 ; Function:
 ;	Write the FAT back to disk and reset FAT
-;	dirty flag.
+;	dirty bit.
 ; Outputs:
 ;	AL = 0
 ;	BP unchanged
 ; All other registers destroyed
 
-	MOV	B,[BP+DIRTY],0
+	MOV	B,[BP+DIRTYFAT],0
 	CALL	FIGFAT
 EACHFAT:
 	PUSH	DX
@@ -772,7 +778,7 @@ OKRET:
 	RET
 
 BADCLOSE:
-	MOV	B,[BP+DIRTY],0
+	MOV	B,[BP+DIRTYFAT],0
 	MOV	AL,-1
 	RET
 
@@ -848,7 +854,7 @@ FREESPOT:
 	CALL	DIRWRITE
 	POP	BX
 	POP	AX
-	JMP	OPENNAM
+	JMP	DOOPEN
 
 
 DIRREAD:
@@ -860,7 +866,7 @@ DIRREAD:
 ; Function:
 ;	Read the directory block into DIRBUF.
 ; Outputs:
-;	AX,BP unchanged
+;	BP unchanged
 ; All other registers destroyed.
 
 	CALL	DIRCOMP
@@ -875,9 +881,11 @@ DREAD:
 ; Function:
 ;	Calls BIOS to perform disk read. If BIOS reports
 ;	errors, will call HARDERR for further action.
+; Outputs:
+;	AL = 0 if no error, otherwise non-zero
 ; BP preserved. All other registers destroyed.
 
-	MOV	AL,[BP+DEVNUM]
+	MOV	AL,[BP+DRVNUM]
 	PUSH	BP
 	PUSH	BX
 	PUSH	CX
@@ -887,12 +895,12 @@ DREAD:
 	POP	DI
 	POP	BX
 	POP	BP
-	JC	DSKRDERR
+	JC	HARDREAD
 	XOR	AL,AL
 	RET
 
-DSKRDERR:
-	MOV	SI,RDERR
+HARDREAD:
+	MOV	SI,RDERRMES
 	CALL	HARDERR
 	JP	DREAD
 
@@ -921,9 +929,11 @@ DWRITE:
 ; Function:
 ;	Calls BIOS to perform disk write. If BIOS reports
 ;	errors, will call HARDERR for further action.
+; Outputs:
+;	AL = 0 if no error, otherwise non-zero
 ; BP preserved. All other registers destroyed.
 
-	MOV	AL,[BP+DEVNUM]
+	MOV	AL,[BP+DRVNUM]
 	MOV	AH,0
 	CMP	DX,[BP+FIRREC]
 	RCR	AH
@@ -936,24 +946,23 @@ DWRITE:
 	POP	DI
 	POP	BX
 	POP	BP
-	JC	DSKWRERR
+	JC	HARDWRITE
 	XOR	AL,AL
 	RET
-
-DSKWRERR:
-	MOV	SI,WRERR
+HARDWRITE:
+	MOV	SI,WRTERRMES
 	CALL	HARDERR
 	JP	DWRITE
 
 HARDERR:
 	SUB	DI,CX
-	ADD	DX,DI		;Next record to transfer
-	CALL	RECTOBYT
-	ADD	BX,DI		;Next location for transfer
+	ADD	DX,DI
+	CALL	SHFTDI7
+	ADD	BX,DI
 	CALL	OUTMES
-GETRESP:
+GETINSTR:
 	CALL	IN
-	OR	AL,20H		;To lower-case
+	OR	AL,20H
 	CMP	AL,"a"
 	JZ	ERROR
 	CMP	AL,"r"
@@ -961,7 +970,7 @@ GETRESP:
 	CMP	AL,"i"
 	JZ	IGNORE
 	CMP	AL,"c"
-	JNZ	GETRESP
+	JNZ	GETINSTR
 	POP	AX
 	MOV	AL,1
 	RET
@@ -972,7 +981,7 @@ IGNORE:
 
 ABORT:
 	SEG	CS
-	MOV	DS,[TEMP]
+	MOV	DS,[CSLOC]
 	XOR	AX,AX
 	MOV	ES,AX
 	MOV	SI,SAVEXIT
@@ -986,7 +995,7 @@ ERROR:
 	MOV	AX,CS
 	MOV	DS,AX
 	MOV	ES,AX
-	CALL	NOBUF
+	CALL	WRTFATS
 	XOR	AX,AX
 	MOV	DS,AX
 	MOV	SI,EXIT
@@ -1075,12 +1084,13 @@ SETUP:
 ;	ES:DI point to FCB
 ;	CX = No. of records to transfer
 ;	BP = Base of drive parameters
+;	SI = FAT pointer
 ;	[RECCNT] = Record count
 ;	[RECPOS] = Record position in file
 ;	[FCB] = DX
 ;	[NEXTADD] = Displacement of disk transfer within segment
 ;	[DSKERR] = 0 (no errors yet)
-;	[NUMTRNS] = 0 (No transfers yet)
+;	[TRANS] = 0 (No transfers yet)
 ; If SETUP detects no records will be transfered, it returns 1 level up 
 ; with CX = 0.
 
@@ -1094,7 +1104,7 @@ SETUP:
 	MOV	BX,[DMAADD]
 	MOV	[NEXTADD],BX
 	MOV	B,[DSKERR],0
-	MOV	[NUMTRNS],0
+	MOV	[TRANS],0
 	MOV	SI,[BP+FAT]
 	ADD	BX,7FH		;See if there is any space left
 	JC	SEGEND
@@ -1123,7 +1133,7 @@ FNDCLUS:
 
 ; Inputs:
 ;	DS = CS
-;	CX = No. of clusters
+;	CX = No. of clusters to skip
 ;	BP = Base of drive parameters
 ;	SI = FAT pointer
 ;	ES:DI point to FCB
@@ -1214,16 +1224,16 @@ SETFCB:
 	SEG	ES
 	MOV	[DI+LSTCLUS],AX
 	MOV	AX,[RECPOS]
-	MOV	BX,[NUMTRNS]
+	MOV	BX,[TRANS]
 	ADD	AX,BX
 	SEG	ES
 	CMP	AX,[DI+FILSIZ]
-	JBE	NOSZINC
+	JBE	SAMSIZ
 	SEG	ES
 	MOV	[DI+FILSIZ],AX
 	SEG	ES
 	MOV	B,[DI+SIZCHG],-1
-NOSZINC:
+SAMSIZ:
 	DEC	AX
 	MOV	DX,AX
 	MOV	CL,[BP+CLUSSHFT]
@@ -1232,8 +1242,8 @@ NOSZINC:
 	MOV	[DI+CLUSPOS],DX
 	MOV	CX,BX
 	RET
-WRTERRJ:
-	JP	WRTERR
+
+WRTERRJ:JP	WRTERR
 
 HAVSTART:
 	MOV	CX,AX
@@ -1245,7 +1255,7 @@ HAVSTART:
 	JNC	NOSKIP
 WRTERR:
 	MOV	B,[DSKERR],1
-ADDREC:
+LVDSK:
 	MOV	AX,[RECPOS]
 	XOR	CX,CX
 	MOV	DI,[FCB]
@@ -1256,9 +1266,9 @@ WRTEOF:
 	MOV	CX,AX
 	CALL	FNDCLUS
 	OR	CX,CX
-	JNZ	ADDREC
+	JNZ	LVDSK
 	MOV	DX,0FFFH
-	MOV	B,[BP+DIRTY],-1
+	MOV	B,[BP+DIRTYFAT],-1
 	MOV	DI,[FCB]
 	MOV	AX,[RECPOS]
 	SEG	ES
@@ -1323,7 +1333,7 @@ WRTLP:
 	JNZ	WRTLP
 	CALL	SETFCB
 	SEG	ES
-	MOV	B,[DI+FLSFLG],-1
+	MOV	B,[DI+DIRTYFIL],-1
 	RET
 
 
@@ -1382,7 +1392,7 @@ FINCLUS:
 	MOV	SI,[NEXTADD]
 	ADD	BX,SI		;Adjust by size of transfer
 	MOV	[NEXTADD],BX
-	ADD	[NUMTRNS],CX
+	ADD	[TRANS],CX
 	POP	DX
 	POP	BX
 	PUSH	CX
@@ -1407,7 +1417,7 @@ GETREC:
 ; Outputs:
 ;	AX = Record number determined by EXTENT and NR fields
 ;	DS:DI point to FCB
-; No other registers affected.
+; BX destroyed. No other registers affected.
 
 	MOV	DI,DX
 	MOV	AL,[DI+NR]
@@ -1434,11 +1444,10 @@ ALLOCATE:
 ;	IF insufficient space
 ;	  THEN
 ;	Carry set
-;	CX = max. no. of records that could be added to file
 ;	  ELSE
 ;	Carry clear
 ;	BX = First cluster allocated
-;	FAT is fully updated including dirty flag
+;	FAT is fully updated including dirty bit
 ;	FIRCLUS field of FCB set if file was null
 ; SI,BP unchanged. All other registers destroyed.
 
@@ -1478,7 +1487,7 @@ HAVFRE:
 	LOOP	ALLOC
 	MOV	DX,0FFFH
 	CALL	PACK
-	MOV	B,[BP+DIRTY],-1
+	MOV	B,[BP+DIRTYFAT],-1
 	POP	BX
 	CALL	UNPACK
 	XCHG	BX,DI
@@ -1534,7 +1543,7 @@ GETEOF:
 
 
 SRCHFRST: ;System call 17
-	CALL	GETNAME
+	CALL	GETFILE
 SAVPLCE:
 ; Search-for-next enters here to save place and report
 ; findings.
@@ -1574,7 +1583,7 @@ SRCHNXT: ;System call 18
 FILESIZE: ;System call 35
 	PUSH	DI
 	PUSH	DX
-	CALL	GETNAME
+	CALL	GETFILE
 	POP	DI
 	POP	ES
 	MOV	AL,-1
@@ -1603,14 +1612,14 @@ GETFATPT: ;System call 27
 	MOV	AX,CS
 	MOV	DS,AX
 	MOV	[DSSAVE],CS
-	MOV	BP,[CURDRV]
-	CALL	LOADFAT
+	MOV	BP,[CURDRVPT]
+	CALL	FATREAD
 	MOV	BX,[BP+FAT]
 	MOV	AL,[BP+CLUSMSK]
 	INC	AL
 	MOV	DX,[BP+MAXCLUS]
 	DEC	DX
-	MOV	B,[BP+DIRTY],-1
+	MOV	B,[BP+DIRTYFAT],-1
 	MOV	[BXSAVE],BX
 	MOV	[DXSAVE],DX
 	RET
@@ -1620,7 +1629,7 @@ GETDSKPT: ;System call 31
 	SEG	CS
 	MOV	[DSSAVE],CS
 	SEG	CS
-	MOV	BX,[CURDRV]
+	MOV	BX,[CURDRVPT]
 	SEG	CS
 	MOV	[BXSAVE],BX
 	RET
@@ -1632,12 +1641,13 @@ DSKRESET: ;System call 13
 	MOV	AX,CS
 	MOV	DS,AX
 	MOV	[DMAADD],80H
-	MOV	AX,[DRVTAB]
-	MOV	[CURDRV],AX
-NOBUF:
-	MOV	CL,[NUMIO]
+	MOV	AX,[CURDRVPT+2]
+	MOV	[CURDRVPT],AX
+WRTFATS:
+; DS=CS. Writes back all dirty FATs. All registers destroyed.
+	MOV	CL,[NUMDRV]
 	MOV	CH,0
-	MOV	SI,DRVTAB
+	MOV	SI,CURDRVPT+2
 WRTFAT:
 	LODW
 	PUSH	CX
@@ -1652,27 +1662,27 @@ WRTFAT:
 	RET
 
 
-GETDRV:	;System call 25
+CURDRV:	;System call 25
 	SEG	CS
-	MOV	BP,[CURDRV]
-	MOV	AL,[BP+0]
+	MOV	BP,[CURDRVPT]
+	MOV	AL,[BP+DRVNUM]
 	RET
 
 
 INUSE:	;System call 24
 	MOV	AX,CS
 	MOV	DS,AX
-	MOV	CL,[NUMIO]
+	MOV	CL,[NUMDRV]
 	MOV	CH,0
 	MOV	SI,CX
 	SHL	SI
-	ADD	SI,CURDRV
+	ADD	SI,CURDRVPT
 	MOV	BX,0
-	STD
+	DOWN
 CHKUSE:
 	LODW
 	MOV	BP,AX
-	TEST	B,[BP+DIRTY],-1
+	TEST	B,[BP+DIRTYFAT],-1
 	JZ	SETBIT
 	STC
 SETBIT:
@@ -1684,12 +1694,12 @@ SETBIT:
 
 SETRNDREC: ;System call 36
 	CALL	GETREC
-	MOV	[DI+RR],AX
+	MOV	[DI+33],AX
 	MOV	AL,0
 	JZ	BIGRR
 	INC	AL
 BIGRR:
-	MOV	[DI+RR+2],AL
+	MOV	[DI+35],AL
 	RET
 
 
@@ -1698,12 +1708,13 @@ SELDSK:	;System call 14
 	MOV	BX,DX
 	PUSH	CS
 	POP	DS
-	CMP	BL,[NUMIO]
+	CMP	BL,[NUMDRV]
 	JGE	RET
 	SHL	BX
-	MOV	AX,[BX+DRVTAB]
-	MOV	[CURDRV],AX
+	MOV	AX,[BX+CURDRVPT+2]
+	MOV	[CURDRVPT],AX
 	RET
+
 
 BUFIN:	;System call 10
 	MOV	AX,CS
@@ -1744,13 +1755,13 @@ GETCH:
 	JZ	ENDLIN
 	CMP	AL,10
 	JZ	PHYCRLF
-	CMP	AL,CANCEL
+	CMP	AL,"X"-"@"
 	JZ	KILNEW
-	CMP	AL,27
+	CMP	AL,ESCCH
 	JZ	ESC
 SAVCH:
 	CMP	DH,DL
-	JNB	GETCH
+	JAE	GETCH
 	STOB
 	INC	DH
 	CALL	OUT
@@ -1831,7 +1842,7 @@ GETCH1:
 BAKTAB:
 	PUSH	DI
 	DEC	DI
-	STD
+	DOWN
 	MOV	CL,DH
 	MOV	AL," "
 	PUSH	BX
@@ -1853,7 +1864,7 @@ HAVTAB:
 	SUB	BL,DH
 	ADD	CL,BL
 	AND	CL,7
-	CLD	
+	UP
 	POP	BX
 	POP	DI
 	JZ	OLDBAK
@@ -1962,7 +1973,8 @@ EXITINS:
 	MOV	AH,0
 	JMP	GETCH
 
-ESCFUNC	DW	GETCH
+ESCFUNC:
+	DW	GETCH
 	DW	TWOESC
 	DW	EXITINS
 	DW	ENTERINS
@@ -1990,7 +2002,6 @@ OUTCH:
 	TEST	B,[PFLAG],-1
 	JZ	STATCHK
 	CALL	BIOSPRINT,BIOSSEG
-
 STATCHK:
 	CALL	BIOSSTAT,BIOSSEG
 	JZ	RET
@@ -1998,7 +2009,7 @@ INCHK:
 	CALL	BIOSIN,BIOSSEG
 	CMP	AL,'S'-'@'
 	JNZ	NOSTOP
-	CALL	BIOSIN,BIOSSEG	;Eat Cntrl-S
+	CALL	BIOSIN,BIOSSEG
 NOSTOP:
 	CMP	AL,'P'-'@'
 	JZ	PRINTON
@@ -2013,12 +2024,10 @@ PRINTON:
 	SEG	CS
 	MOV	B,[PFLAG],1
 	RET
-
 PRINTOFF:
 	SEG	CS
 	MOV	B,[PFLAG],0
 	RET
-
 CTRLOUT:
 	CMP	AL,10
 	JZ	OUTCH
@@ -2039,7 +2048,6 @@ ZERPOS:
 	SEG	CS
 	MOV	B,[CARPOS],0
 	JP	OUTCH
-
 BACKPOS:
 	SEG	CS
 	DEC	B,[CARPOS]
@@ -2077,7 +2085,7 @@ CONIN:	;System call 1
 	RET
 
 
-IN:
+IN:	;Internal input routine
 	CALL	INCHK
 	JZ	IN
 	RET
@@ -2133,7 +2141,7 @@ SETVECT: ; Interrupt call 37
 NEWBASE: ; Interrupt call 38
 	MOV	ES,DX
 	SEG	CS
-	MOV	DS,[TEMP]
+	MOV	DS,[CSLOC]
 	XOR	SI,SI
 	MOV	DI,SI
 	MOV	CX,80H
@@ -2143,7 +2151,6 @@ NEWBASE: ; Interrupt call 38
 SETMEM:
 
 ; Inputs:
-;	AX = Size of memory in paragraphs
 ;	DX = Segment
 ; Function:
 ;	Completely prepares a program base at the 
@@ -2156,7 +2163,7 @@ SETMEM:
 ;	[5] to [9] form a long call to the entry point
 ;	[10] to [13] have exit address (from INT 22H)
 ;	[14] to [17] have ctrl-C exit address (from INT 23H)
-; DX,BP unchanged. All other registers destroyed.
+; AX,DX,BP unchanged. All other registers destroyed.
 
 	XOR	CX,CX
 	MOV	DS,CX
@@ -2172,9 +2179,9 @@ SETMEM:
 	SEG	ES
 	MOV	[2],CX
 	SUB	CX,DX
-	CMP	CX,0FFFH
+	CMP	CX,MAXDIF
 	JBE	HAVDIF
-	MOV	CX,0FFFH
+	MOV	CX,MAXDIF
 HAVDIF:
 	MOV	BX,ENTRYPOINTSEG
 	SUB	BX,CX
@@ -2189,7 +2196,8 @@ HAVDIF:
 	MOV	B,[5],LONGCALL
 	RET
 
-RECTOBYT:
+
+SHFTDI7:
 	SHL	DI
 	SHL	DI
 	SHL	DI
@@ -2201,45 +2209,51 @@ RECTOBYT:
 
 
 ;***** DATA AREA *****
-BADFAT	DB	13,10,"Bad FAT",13,10,"$"
-ALLBAD	DB	13,10,"All FATs on disk are bad",13,10,"$"
-RDERR	DB	13,10,"Disk read error",13,10,"$"
-WRERR	DB	13,10,"Disk write error",13,10,"$"
-CARPOS	DB	0
-STARTPOS DB	0
-PFLAG	DB	0
-SRCHDON	DB	-1
-PDIR	DS	2
-SRCHBP	DS	2
-EXITHOLD DS	4
-ENDMEM	DS	2
-FATBASE	DS	2
-INBUF	DS	255
-DIRBUF	DS	128
-NUMIO	DS	1		;Number of disk tables
-NAME1	DS	11		;File name buffer
-NAME2	DS	11		;File name buffer
-DMAADD	DS	4		;User's disk transfer address (disp/seg)
-TEMP	DS	2
-DSKERR	DS	1
-FCB	DS	2		;Address of user FCB
-RECPOS	DS	2
-NEXTADD	DS	2
-RECCNT	DS	2
-CLUSNUM	DS	2
-NUMTRNS	DS	2
-	DS	50
-AXSAVE	DS	2
-BXSAVE	DS	2
-CXSAVE	DS	2
-DXSAVE	DS	2
-SISAVE	DS	2
-DISAVE	DS	2
-BPSAVE	DS	2
-DSSAVE	DS	2
-ESSAVE	DS	2
-SSSAVE	DS	2
-SPSAVE	DS	2
-CURDRV	DS	2
+
+BADMES:	DB	13,10,"Bad FAT",13,10,"$"
+BADFATMES:DB	13,10,"All FATs on disk are bad",13,10,"$"
+RDERRMES:DB	13,10,"Disk read error",13,10,"$"
+WRTERRMES:DB	13,10,"Disk write error",13,10,"$"
+
+CARPOS:	DB	0
+STARTPOS:DB	0
+PFLAG:	DB	0
+SRCHDON:DB	-1
+PDIR:	DS	2
+SRCHBP:	DS	2
+EXITHOLD:DS	4
+ENDMEM:	DS	2
+FATBASE:DS	2
+INBUF:	DS	255
+DIRBUF:	DS	128
+NUMDRV:	DS	1	;Number of drives
+NAME1:	DS	11	;File name buffer
+NAME2:	DS	11
+DMAADD:	DS	4	;User's disk transfer address (disp/seg)
+TEMP:
+CSLOC:	DS	2
+DSKERR:	DS	1
+FCB:	DS	2	;Address of user FCB
+RECPOS:	DS	2
+NEXTADD:DS	2
+RECCNT:	DS	2
+CLUSNUM:DS	2
+TRANS:	DS	2
+
+	DS	50	;Stack space
+AXSAVE:	DS	2
+BXSAVE:	DS	2
+CXSAVE:	DS	2
+DXSAVE:	DS	2
+SISAVE:	DS	2
+DISAVE:	DS	2
+BPSAVE:	DS	2
+DSSAVE:	DS	2
+ESSAVE:	DS	2
+STACK:
+SSSAVE:	DS	2
+SPSAVE:	DS	2
+
+CURDRVPT:DS	2
 DRVTAB:				;Address of start of DPBs
-
+

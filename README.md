@@ -28,7 +28,6 @@ By accessing and using the reconstructed source code provided in this repository
 *See [Building 86-DOS 0.11](./Building.md).*
 
 ## Special Thanks
-* [@TimPaterson](https://github.com/TimPaterson) - For writing this amazing OS.
+* [@TimPaterson](https://github.com/TimPaterson) - For writing this amazing OS and providing the source code of 86-DOS 1.00.
 * [@geneb](https://github.com/geneb) - For providing a copy of 86-DOS 0.11.
-* [@LucasBrooks](https://github.com/LucasBrooks) - For providing an 86-DOS 1.14 kernel disassembly and for documenting the DPB structure.
 * [@RichCini](https://github.com/RichCini) - For figuring out some hard-to-decipher logic and for testing and debugging the reconstructed Tarbell-specific code on physical hardware.
