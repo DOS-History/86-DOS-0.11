@@ -1,13 +1,12 @@
 ;***********************************************************
 ;
-;		SARGON
+;                  SARGON
 ;
 ;	Sargon is a computer chess playing program designed
 ; and coded by Dan and Kathe Spracklen.  Copyright 1978. All
 ; rights reserved.  No part of this publication may be
 ; reproduced without the prior written permission.
-;***********************************************************
-
+;
 ;***********************************************************
 ; SYSTEM EQUATES
 ;***********************************************************
@@ -15,7 +14,6 @@ INCHAR:	EQU	1
 PRINTBUF:EQU	9
 INBUF:	EQU	10
 SYSTEM:	EQU	5
-
 ;***********************************************************
 ; EQUATES
 ;***********************************************************
@@ -45,7 +43,7 @@ BPAWN:	EQU	BLACK+PAWN
 ;                 PLYRMV
 ;
 ; ARGUMENTS:      None
-;***********************************************************
+;**********************************************************
 DRIVER:	MOV	SP,STACK	; Set stack pointer
 	MOV	DX,CLRMSG	; Request color choice
 	MOV	CL,PRINTBUF
@@ -88,6 +86,8 @@ DR25:	CALL	CPTRMV		; Do computer move
 	INC	B,[BX]		; Increment move number
 	JP	DR20		; Back to player move
 
+
+
 ;***********************************************************
 ; TABLES SECTION
 ;***********************************************************
@@ -97,7 +97,7 @@ START:
 	PUT	START+80H
 TBASE:	EQU	START+100H
 ;***********************************************************
-; DIRECT  --  Direction Table.  Used to determine the dir-
+;  DIRECT --  Direction Table.  Used to determine the dir-
 ;             ection of movement of each piece.
 ;***********************************************************
 DIRECT:	EQU	$-TBASE
@@ -107,6 +107,9 @@ DIRECT:	EQU	$-TBASE
 	DB	+21,+12,-08,-19
 	DB	+10,+10,+11,+09
 	DB	-10,-10,-11,-09
+
+
+
 ;***********************************************************
 ; DPOINT  --  Direction Table Pointer.  Used to determine
 ;             where to begin in the direction table for any
@@ -114,7 +117,6 @@ DIRECT:	EQU	$-TBASE
 ;***********************************************************
 DPOINT:	EQU	$-TBASE
 	DB	20,16,8,0,4,0,0
-
 ;***********************************************************
 ; DCOUNT  --  Direction Table Counter.  Used to determine
 ;             the number of directions of movement for any
@@ -123,13 +125,14 @@ DPOINT:	EQU	$-TBASE
 DCOUNT:	EQU	$-TBASE
 	DB	4,4,8,4,4,8,8
 
+
+
 ;***********************************************************
 ; PVALUE  --  Point Value.  Gives the point value of each
 ;             piece, or the worth of each piece.
 ;***********************************************************
 PVALUE:	EQU	$-TBASE-1
 	DB	1,3,3,5,9,10
-
 ;***********************************************************
 ; PIECES  --  The initial arrangement of the first rank of
 ;             pieces on the board.  Use to set up the board
@@ -137,6 +140,8 @@ PVALUE:	EQU	$-TBASE-1
 ;***********************************************************
 PIECES:	EQU	$-TBASE
 	DB	4,2,3,5,6,3,2,4
+
+
 
 ;***********************************************************
 ; BOARD   --  Board Array.  Used to hold the current position
@@ -159,27 +164,29 @@ PIECES:	EQU	$-TBASE
 ;             moves off the board.  The individual bits of
 ;             the other bytes in the board array are as
 ;             follows:
-;             Bit 7 -- Color of the piece
-;                     1 -- Black
-;                     0 -- White
-;             Bit 6 -- Not used
-;             Bit 5 -- Pawn attack flag for ATTACK
-;             Bit 4 -- Castle flag for Kings only
-;             Bit 3 -- Piece has moved flag
-;             Bits 2-0 Piece type
-;                     1 -- Pawn
-;                     2 -- Knight
-;                     3 -- Bishop
-;                     4 -- Rook
-;                     5 -- Queen
-;                     6 -- King
-;                     7 -- Not used
-;                     0 -- Empty Square
-;***********************************************************
+;               Bit 7 -- Color of the piece
+;                       1 -- Black
+;                       0 -- White
+;               Bit 6 -- Not used
+;               Bit 5 -- Pawn attack flag for ATTACK
+;               Bit 4 -- Castle flag for Kings only
+;               Bit 3 -- Piece has moved flag
+;               Bits 2-0 Piece type
+;                       1 -- Pawn
+;                       2 -- Knight
+;                       3 -- Bishop
+;                       4 -- Rook
+;                       5 -- Queen
+;                       6 -- King
+;                       7 -- Not used
+;                       0 -- Empty Square
+;************************************************************
 BOARD:	EQU	$-TBASE
 BOARDA:	DS	120
 
-;***********************************************************
+
+
+;************************************************************
 ; ATKLIST -- Attack List.  A two part array, the first
 ;            half for white and the second half for black.
 ;            It is used to hold the attackers of any given
@@ -196,6 +203,8 @@ ATKLST:	DW	0,0,0,0,0,0,0
 WACT:	EQU	ATKLST
 BACT:	EQU	ATKLST+7
 
+
+
 ;***********************************************************
 ; PLIST   --  Pinned Piece Array.  This is a two part array.
 ;             PLISTA contains the pinned piece position.
@@ -205,6 +214,8 @@ BACT:	EQU	ATKLST+7
 PLIST:	EQU	$-TBASE-1
 PLISTD:	EQU	PLIST+10
 PLISTA:	DW	0,0,0,0,0,0,0,0,0,0
+
+
 
 ;***********************************************************
 ; POSK    --  Position of Kings.  A two byte area, the first
@@ -218,13 +229,17 @@ POSK:	DB	24,95
 POSQ:	DB	14,94
 	DB	-1
 
+
+
 ;************************************************************
 ; SCORE   --  Score Array.  Used during Alpha-Beta pruning to
 ;             hold the scores at each ply.  It includes two
 ;             "dummy" entries for ply -1 and ply 0.
 ;************************************************************
-SCORE:	DW	0,0,0,0,0,0
 
+
+
+SCORE:	DW	0,0,0,0,0,0
 ;************************************************************
 ; PLYIX   --  Ply Table.  Contains pairs of pointers, a pair
 ;             for each ply.  The first pointer points to the
@@ -232,14 +247,18 @@ SCORE:	DW	0,0,0,0,0,0
 ;             The second pointer points to which move in the
 ;             list is the one currently being considered.
 ;************************************************************
+
+
+
 PLYIX:	DW	0,0,0,0,0,0,0,0,0,0
 	DW	0,0,0,0,0,0,0,0,0,0
-
 ;************************************************************
 ; STACK   --  Contains the stack for the program.
 ;************************************************************
 	ORG	START+2FFH
 STACK:
+
+
 
 ;************************************************************
 ; TABLE INDICES SECTION
@@ -294,6 +313,8 @@ SCRIX:	DW	0
 BESTM:	DW	0
 MLLST:	DW	0
 MLNXT:	DW	MLIST
+
+
 
 ;************************************************************
 ; VARIABLES SECTION
@@ -381,6 +402,8 @@ BMOVES:	DB	35,55,10H
 	DB	85,65,10H
 	DB	84,64,10H
 
+
+
 ;************************************************************
 ; MOVE LIST SECTION
 ;
@@ -406,8 +429,8 @@ BMOVES:	DB	35,55,10H
 ;             information.  The meaning of each bit is as
 ;             follows:
 ;             Bit 7  --  The color of any captured piece
-;                        0 -- White
-;                        1 -- Black
+;                        0  --  White
+;                        1  --  Black
 ;             Bit 6  --  Double move flag (set for castling and
 ;                        en passant pawn captures)
 ;             Bit 5  --  Pawn Promotion flag; set when pawn
@@ -435,6 +458,8 @@ MLTOP:	EQU	3
 MLFLG:	EQU	4
 MLVAL:	EQU	5
 
+
+
 ;************************************************************
 ; PROGRAM CODE SECTION
 ;************************************************************
@@ -449,6 +474,7 @@ MLVAL:	EQU	5
 ; CALLS:      None
 ;
 ; ARGUMENTS:  None
+;
 ;*************************************************************
 INITBD:	MOV	CX,60		; Pre-fill board with -1's
 	MOV	DI,BOARDA
@@ -479,6 +505,8 @@ IB2:	MOV	AL,[SI-8]	; Fill non-border squares
 	MOV	B,[SI+3],94
 	RET
 
+
+
 ;************************************************************
 ; PATH ROUTINE
 ;************************************************************
@@ -505,10 +533,10 @@ IB2:	MOV	AL,[SI-8]	; Fill non-border squares
 ; ARGUMENTS:  Direction from the direction array giving the
 ;             constant to be added for the new position.
 ;************************************************************
-PATH:	ADD	[M2],CL		; Add direction constant to previous position
+PATH:	ADD	[M2],CL		; Add direction constant to prev pos
 	MOV	SI,[M2]		; Load board index
 	MOV	AL,[SI+BOARD]	; Get contents of board
-	CMP	AL,-1		; In border area ?
+	CMP	AL,-1		; In boarder area ?
 	JZ	PA2		; Yes - jump
 	MOV	[P2],AL		; Save piece
 	MOV	AH,AL		; Save piece in register
@@ -521,7 +549,9 @@ PATH:	ADD	[M2],CL		; Add direction constant to previous position
 	SBB	AL,0
 	RET			; Return
 PA2:	MOV	AL,3		; Set off board flag
-	RET
+	RET			; Return
+
+
 
 ;************************************************************
 ; PIECE MOVER ROUTINE
@@ -611,6 +641,8 @@ MP37:	OR	B,[P2],020H	; Set promote flag
 MP36:	CALL	ENPSNT		; Try en passant capture
 	JMP	MP15		; Jump
 
+
+
 ;***********************************************************
 ; EN PASSANT ROUTINE
 ;***********************************************************
@@ -621,6 +653,7 @@ MP36:	CALL	ENPSNT		; Try en passant capture
 ; CALLED BY:  --  MPIECE
 ;
 ; CALLS:      --  ADMOVE
+
 ;                 ADJPTR
 ;
 ; ARGUMENTS:  --  None
@@ -636,7 +669,7 @@ EP5:	CMP	AL,61		; On en passant capture rank ?
 	MOV	SI,[MLPTRJ]	; Get pointer to previous move
 	TEST	B,[SI+MLFLG],010H ; First move for that piece ?
 	JZ	RET		; No - return
-	MOV	AL,[SI+MLTOP]	; Get "to" position
+	MOV	AL,[SI+MLTOP]	; Get "to" postion
 	MOV	[M4],AL		; Store as index to board
 	MOV	SI,[M4]		; Load board index
 	MOV	AL,[SI+BOARD]	; Get piece moved
@@ -665,6 +698,8 @@ EP10:	CMP	AL,10		; Is difference 10 ?
 	MOV	AL,[M3]		; Restore "from" position
 	MOV	[M1],AL
 
+
+
 ;************************************************************
 ; ADJUST MOVE LIST POINTER FOR DOUBLE MOVE
 ;************************************************************
@@ -686,8 +721,10 @@ ADJPTR:	MOV	BX,[MLLST]	; Get list pointer
 	MOV	[BX],0		; Zero out link
 	RET			; Return
 
+
+
 ;************************************************************
-; CASTLE ROUTINE
+;CASTLE ROUTINE
 ;************************************************************
 ; FUNCTION:   --  To determine whether castling is legal
 ;                 (Queen side, King side, or both) and add it
@@ -759,6 +796,8 @@ CA20:	MOV	AL,CH		; Scan Index
 	MOV	CX,01FCH	; Set Queen-side initial values
 	JMP	CA5		; Jump
 
+
+
 ;************************************************************
 ; ADMOVE ROUTINE
 ;************************************************************
@@ -800,19 +839,21 @@ AM5:	XCHG	DX,DI		; Address of move area
 AM10:	MOV	[BX],0		; Abort entry  on table ovflow
 	RET
 
-;***********************************************************
+
+
+;************************************************************
 ; GENERATE MOVE ROUTINE
-;***********************************************************
-; FUNCTION:  --  To generate the move set for all of the
-;                pieces of a given color.
+;************************************************************
+; FUNCTION:   --  To generate the move set for all of the
+;                 pieces of a given color.
 ;
-; CALLED BY: --  FNDMOV
+; CALLED BY:  --  FNDMOV
 ;
-; CALLS:     --  MPIECE
-;                INCHK
+; CALLS:      --  MIECE
+;                 INCHK
 ;
-; ARGUMENTS: --  None
-;***********************************************************
+; ARGUMENTS:  --  None
+;************************************************************
 GENMOV:	CALL	INCHK		; Test for King in check
 	MOV	[CKFLG],AL	; Save attack count as flag
 	MOV	DX,[MLNXT]	; Addr of next avail list space
@@ -830,7 +871,7 @@ GM5:	MOV	[M1],AL		; Save as index
 	MOV	AL,[SI+BOARD]	; Fetch board contents
 	AND	AL,AL		; Is it empty ?
 	JZ	GM10		; Yes - Jump
-	CMP	AL,-1		; Is it a border square ?
+	CMP	AL,-1		; Is it a boarder square ?
 	JZ	GM10		; Yes - Jump
 	MOV	[P1],AL		; Save piece
 	MOV	BX,COLOR	; Address of color of piece
@@ -844,9 +885,11 @@ GM10:	MOV	AL,[M1]		; Fetch current board position
 	JNZ	GM5		; No - Jump
 	RET			; Return
 
-;***********************************************************
+
+
+;************************************************************
 ; CHECK ROUTINE
-;***********************************************************
+;************************************************************
 ; FUNCTION:   --  To determine whether or not the
 ;                 King is in check.
 ;
@@ -857,7 +900,7 @@ GM10:	MOV	AL,[M1]		; Fetch current board position
 ; CALLS:      --  ATTACK
 ;
 ; ARGUMENTS:  --  Color of King
-;***********************************************************
+;************************************************************
 INCHK:	MOV	AL,[COLOR]	; Get color
 INCHK1:	MOV	BX,POSK		; Addr of white King position
 	AND	AL,AL		; White ?
@@ -871,9 +914,11 @@ IC5:	MOV	AL,[BX]		; Fetch King position
 	AND	AL,7		; Get piece type
 	MOV	[T1],AL		; Save
 
-;***********************************************************
+
+
+;************************************************************
 ; ATTACK ROUTINE
-;***********************************************************
+;************************************************************
 ; FUNCTION:   --  To find all attackers on a given square
 ;                 by scanning outward from the square
 ;                 until a piece is found that attacks
@@ -881,7 +926,7 @@ IC5:	MOV	AL,[BX]		; Fetch King position
 ;                 doesn't attack that square, or the edge
 ;                 of the board is reached.
 ;
-;                 In determining which pieces attack
+;                      In determining which pieces attack
 ;                 a square, this routine also takes into
 ;                 account the ability of certain pieces to
 ;                 attack through another attacking piece. (For
@@ -891,7 +936,7 @@ IC5:	MOV	AL,[BX]		; Fetch King position
 ;                 queen, since both participate in the
 ;                 attack.
 ;
-;                 In the case where this routine is called
+;                      In the case where this routine is called
 ;                 by CASTLE or INCHK, the routine is
 ;                 terminated as soon as an attacker of the
 ;                 opposite color is encountered.
@@ -905,7 +950,7 @@ IC5:	MOV	AL,[BX]		; Fetch King position
 ;                 ATKOUT
 ;
 ; ARGUMENTS:  --  None
-;***********************************************************
+;************************************************************
 ATTACK:	PUSH	CX		; Save Register CX
 	MOV	BP,[M3]		; Get piece index
 	ADD	BP,BOARD	; Add board pointer to it
@@ -945,9 +990,11 @@ AT20:	MOV	SI,DIRECT+TBASE	; Load direction table
 	POP	CX		; Restore CX reg
 	RET			; Return
 
-;***********************************************************
+
+
+;************************************************************
 ; ATTACK ADJACENT SCAN ROUTINE
-;***********************************************************
+;************************************************************
 ; FUNCTION:   --  To scan for a specified attacker on adjacent
 ;                 squares.
 ;
@@ -956,7 +1003,7 @@ AT20:	MOV	SI,DIRECT+TBASE	; Load direction table
 ; CALLS:      --  ATKCHK
 ;
 ; ARGUMENTS:  --  The piece under attack. The attacker.
-;***********************************************************
+;************************************************************
 ATKADJ:	MOV	CX,8		; 8 directions to scan
 AA5:	XCHG	AX,BX		; Save AX
 	LODB			; Get direction byte
@@ -972,9 +1019,11 @@ AA5:	XCHG	AX,BX		; Save AX
 AA10:	LOOP	AA5		; Go check for next direction
 	RET			; Return
 
-;***********************************************************
+
+
+;************************************************************
 ; ATTACK OUTWARD SCAN ROUTINE
-;***********************************************************
+;************************************************************
 ; FUNCTION:   --  To scan for a specified attacker outwards
 ;                 from the piece under attack, until found
 ;                 or edge of the board is reached.
@@ -984,7 +1033,7 @@ AA10:	LOOP	AA5		; Go check for next direction
 ; CALLS:      --  ATKCHK
 ;
 ; ARGUMENTS:  --  The piece under attack. The attacker.
-;***********************************************************
+;************************************************************
 ATKOUT:	MOV	CL,4		; 4 directions to scan
 AO5:	MOV	DX,0C0H		; Bitmask for color flags
 	XCHG	AX,BX		; Save AX
@@ -1014,9 +1063,11 @@ AO22:	MOV	AL,[DI]		; Get piece
 	CALL	ATKCHK		; Check and save attack
 	JP	AO10		; Keeping going that direction
 
-;***********************************************************
+
+
+;************************************************************
 ; ATTACK CHECK AND SAVE ROUTINE
-;***********************************************************
+;************************************************************
 ; FUNCTION:   --  To check if a piece can attack the target
 ;                 square and save the attacking piece value
 ;                 in the attack list.
@@ -1036,7 +1087,7 @@ AO22:	MOV	AL,[DI]		; Get piece
 ; CALLS:      --  None
 ;
 ; ARGUMENTS:  --  The attacking piece. The piece under attack.
-;***********************************************************
+;************************************************************
 ATKCHK:	MOV	AL,[DI]		; Get piece
 	CMP	B,[T1],7	; Call from POINTS ?
 	JZ	ACK10		; Yes - jump
@@ -1119,9 +1170,11 @@ ACK40:	MOV	[DI],AL		; Put back into attack list
 	POP	CX
 	RET			; Return
 
-;***********************************************************
+
+
+;************************************************************
 ; PIN FIND ROUTINE
-;***********************************************************
+;************************************************************
 ; FUNCTION:   --  To produce a list of all pieces pinned
 ;                 against the King or Queen, for both white
 ;                 and black.
@@ -1133,14 +1186,14 @@ ACK40:	MOV	[DI],AL		; Put back into attack list
 ;                 ATTACK
 ;
 ; ARGUMENTS:  --  None
-;***********************************************************
+;************************************************************
 PINFND:	XOR	AL,AL		; Zero pin count
 	MOV	[NPINS],AL
 	MOV	DX,POSK		; Addr of King/Queen pos list
 PF1:	MOV	BP,DX
 	MOV	AL,[BP]		; Get position of royal piece
 	AND	AL,AL		; Is it on board ?
-	JNZ	PF1A		; Yes- continue
+	JNZ	PF1A		; Yes - continue
 	JMP	PF26
 PF1A:	CMP	AL,-1		; At end of list ?
 	JZ	RET		; Yes return
@@ -1162,7 +1215,7 @@ PF5:	CALL	PATH		; Compute next position
 	JZ	PF5		; Yes - jump
 	CMP	AL,3		; Off board ?
 	JZ	JPF25		; Yes - jump
-	CMP	AL,2		; Piece of same color
+	CMP	AL,2		; Piece of same color found ?
 	MOV	AL,[M4]		; Load pinned piece position
 	JZ	PF15		; Yes - jump
 	AND	AL,AL		; Possible pin ?
@@ -1232,9 +1285,11 @@ PF25:	INC	DI		; Increment direction index
 PF26:	INC	DX		; Incr King/Queen pos index
 	JMP	PF1		; Jump
 
-;***********************************************************
+
+
+;************************************************************
 ; EXCHANGE ROUTINE
-;***********************************************************
+;************************************************************
 ; FUNCTION:   --  To determine the exchange value of a
 ;                 piece on a given square by examining all
 ;                 attackers and defenders of that piece.
@@ -1293,9 +1348,10 @@ XC20:	ADD	DL,CH		; Total points lost
 	MOV	CH,BL		; Prev attckr becomes defender
 	JMP	XC10		; Jump
 
-;***********************************************************
+
+;************************************************************
 ; NEXT ATTACKER/DEFENDER ROUTINE
-;***********************************************************
+;************************************************************
 ; FUNCTION:   --  To retrieve the next attacker or defender
 ;                 piece value from the attack list, and delete
 ;                 that piece from the list.
@@ -1307,7 +1363,7 @@ XC20:	ADD	DL,CH		; Total points lost
 ; ARGUMENTS:  --  Attack list addresses.
 ;                 Side flag
 ;                 Attack list counts
-;***********************************************************
+;*********************************************************
 NEXTAD:	INC	CL		; Increment side flag
 	XCHG	BX,[HL]
 	XCHG	DX,[DE]
@@ -1336,9 +1392,11 @@ NX6:	XCHG	BX,[HL]
 	XCHG	CX,[BC]		; Restore regs.
 	RET			; Return
 
-;***********************************************************
+
+
+;************************************************************
 ; POINT EVALUATION ROUTINE
-;***********************************************************
+;************************************************************
 ;FUNCTION:   --  To perform a static board evaluation and
 ;                derive a score for a given board position
 ;
@@ -1350,7 +1408,7 @@ NX6:	XCHG	BX,[HL]
 ;                 LIMIT
 ;
 ; ARGUMENTS:  --  None
-;***********************************************************
+;**************************************************************
 POINTS:	XOR	AL,AL		; Zero out variables
 	MOV	[MTRL],AL
 	MOV	[BRDC],AL
@@ -1470,7 +1528,7 @@ PT25A:	MOV	AL,[PTSL]	; Get max points lost
 	JZ	PT26		; Yes - jump
 	DEC	AL		; Decrement it
 PT26:	MOV	CH,AL		; Save it
-	MOV	AL,[PTSW1]	; Max,points won
+	MOV	AL,[PTSW1]	; Max points won
 	AND	AL,AL		; Is it zero ?
 	JZ	PT27		; Yes - jump
 	MOV	AL,[PTSW2]	; 2nd max points won
@@ -1514,9 +1572,11 @@ PT30:	ADD	AL,80H		; Rescale score (neutral = 80H)
 	MOV	[SI+MLVAL],AL	; Save score in move list
 	RET			; Return
 
+
+
 ;***********************************************************
 ; LIMIT ROUTINE
-;***********************************************************
+;**********************************************************
 ; FUNCTION:   --  To limit the magnitude of a given value
 ;                 to another given value.
 ;
@@ -1524,11 +1584,11 @@ PT30:	ADD	AL,80H		; Rescale score (neutral = 80H)
 ;
 ; CALLS:      --  None
 ;
-; ARGUMENTS:  --  Input  - Value, to be limited in the CH
+; ARGUMENTS:  --  Input  - Value to be limited in the CH
 ;                          register.
-;                        - Value to limit to in the AL register
+;                        - Value to limit to in the AL register.
 ;                 Output - Limited value in the AL register.
-;***********************************************************
+;************************************************************
 LIMIT:	TEST	CH,080H		; Is value negative ?
 	JZ	LIM10		; No - jump
 	NEG	AL		; Make positive
@@ -1540,6 +1600,8 @@ LIM10:	CMP	AL,CH		; Compare to limit
 	JC	RET		; Return if outside limit
 	MOV	AL,CH		; Output value as is
 	RET			; Return
+
+
 
 ;***********************************************************
 ; MOVE ROUTINE
@@ -1556,7 +1618,7 @@ LIM10:	CMP	AL,CH		; Compare to limit
 ; CALLS:      --  None
 ;
 ; ARGUMENTS:  --  None
-;***********************************************************
+;************************************************************
 MOVE:	MOV	BX,[MLPTRJ]	; Load move list pointer
 	INC	BX		; Increment past link bytes
 	INC	BX
@@ -1609,12 +1671,14 @@ MV30:	MOV	BX,POSK		; Get saved King position
 	OR	DL,010H		; Set King castled flag
 	JMP	MV21		; Jump
 MV40:	MOV	BX,[MLPTRJ]	; Get move list pointer
-	ADD	BX,8		; Increment to next move
+	ADD	BX,8		; Increment  to next move
 	JMP	MV1		; Jump (2nd part of dbl move)
 
-;***********************************************************
+
+
+;**********************************************************
 ; UN-MOVE ROUTINE
-;***********************************************************
+;**********************************************************
 ; FUNCTION:   --  To reverse the process of the move routine,
 ;                 thereby restoring the board array to its
 ;                 previous position.
@@ -1627,7 +1691,7 @@ MV40:	MOV	BX,[MLPTRJ]	; Get move list pointer
 ; CALLS:      --  None
 ;
 ; ARGUMENTS:  --  None
-;***********************************************************
+;*************************************************************
 UNMOVE:	MOV	BX,[MLPTRJ]	; Load move list pointer
 	INC	BX		; Increment past link bytes
 	INC	BX
@@ -1688,9 +1752,11 @@ UM40:	MOV	BX,[MLPTRJ]	; Load move list pointer
 	ADD	BX,8		; Increment to next move
 	JMP	UM1		; Jump (2nd part of dbl move)
 
-;***********************************************************
+
+
+;**********************************************************
 ; SORT ROUTINE
-;***********************************************************
+;**********************************************************
 ; FUNCTION:   --  To sort the move list in order of
 ;                 increasing move value scores.
 ;
@@ -1699,7 +1765,7 @@ UM40:	MOV	BX,[MLPTRJ]	; Load move list pointer
 ; CALLS:      --  EVAL
 ;
 ; ARGUMENTS:  --  None
-;***********************************************************
+;*************************************************************
 SORTM:	MOV	CX,[MLPTRI]	; Move list begin pointer
 	MOV	DX,0		; Initialize working pointers
 SR5:	MOV	BH,CH
@@ -1734,13 +1800,15 @@ SR25:	MOV	[BX],CH		; Link new move into list
 SR30:	XCHG	DX,BX		; Swap pointers
 	JMP	SR15		; Jump
 
-;***********************************************************
+
+
+;**********************************************************
 ; EVALUATION ROUTINE
-;***********************************************************
+;**********************************************************
 ; FUNCTION:   --  To evaluate a given move in the move list.
 ;                 It first makes the move on the board, then if
 ;                 the move is legal, it evaluates it, and then
-;                 restores the board position.
+;                 restores the boaard position.
 ;
 ; CALLED BY:  --  SORT
 ;
@@ -1748,10 +1816,10 @@ SR30:	XCHG	DX,BX		; Swap pointers
 ;                 INCHK
 ;                 PINFND
 ;                 POINTS
-;                 UNMOVE
+;                 UNMOV
 ;
 ; ARGUMENTS:  --  None
-;***********************************************************
+;*************************************************************
 EVAL:	CALL	MOVE		; Make move on the board array
 	CALL	INCHK		; Determine if move is legal
 	AND	AL,AL		; Legal move ?
@@ -1763,9 +1831,11 @@ EV5:	CALL	PINFND		; Compile pinned list
 	CALL	POINTS		; Assign points to move
 	JMP	UNMOVE		; Restore board array
 
-;***********************************************************
+
+
+;*********************************************************
 ; FIND MOVE ROUTINE
-;***********************************************************
+;*********************************************************
 ; FUNCTION:   --  To determine the computer's best move by
 ;                 performing a depth first tree search using
 ;                 the techniques of alpha-beta pruning.
@@ -1777,11 +1847,11 @@ EV5:	CALL	PINFND		; Compile pinned list
 ;                 GENMOV
 ;                 SORTM
 ;                 ASCEND
-;                 UNMOVE
+;                 UNMOV
 ;
 ; ARGUMENTS:  --  None
-;***********************************************************
-FNDMOV:	MOV	AL,[MOVENO]	; Current move number
+;************************************************************
+FNDMOV:	MOV	AL,[MOVENO]	; Currnet move number
 	CMP	AL,1		; First move ?
 	JNZ	L0003
 	CALL	BOOK		; Yes - execute book opening
@@ -1808,7 +1878,7 @@ FM1:	MOV	[BX],AL
 	JNZ	FM1
 	MOV	[BC0],AL	; Zero ply 0 board control
 	MOV	[MV0],AL	; Zero ply 0 material
-	CALL	PINFND		; Compile pin list
+	CALL	PINFND		; Complie pin list
 	CALL	POINTS		; Evaluate board at ply 0
 	MOV	AL,[BRDC]	; Get board control points
 	MOV	[BC0],AL	; Save
@@ -1846,7 +1916,7 @@ FM15A:	MOV	[MLPTRJ],DX	; Save current move pointer
 	JC	FM18		; Jump if not max
 	CALL	MOVE		; Execute move on board array
 	CALL	INCHK		; Check for legal move
-	AND	AL,AL		; Is move legal
+	AND	AL,AL		; Is move legal ?
 	JZ	FM16		; Yes - jump
 	CALL	UNMOVE		; Restore board position
 	JMP	FM15		; Jump
@@ -1933,18 +2003,20 @@ FM37:	CMP	AL,[BX]		; Compare to score 2 ply above
 FM40:	CALL	ASCEND		; Ascend one ply in tree
 	JMP	FM15		; Jump
 
-;***********************************************************
+
+
+;**********************************************************
 ; ASCEND TREE ROUTINE
-;***********************************************************
-; FUNCTION:  --  To adjust all necessary parameters to
-;                ascend one ply in the tree.
+;*********************************************************
+; FUNCTION:   --  To adjust all necessary parameters to
+;                 ascend one ply in the tree.
 ;
-; CALLED BY: --  FNDMOV
+; CALLED BY:  --  FNDMOV
 ;
-; CALLS:     --  UNMOVE
+; CALLS:      --  UNMOV
 ;
-; ARGUMENTS: --  None
-;***********************************************************
+; ARGUMENTS:  --  None
+;************************************************************
 ASCEND:	XOR	B,[COLOR],80H	; Toggle color, is new color white ?
 	JNS	AC5		; Yes - jump
 	DEC	B,[MOVENO]	; Decrement move number
@@ -1962,9 +2034,11 @@ AC5:	DEC	[SCRIX]		; Decrement score table index
 	MOV	[MLPTRJ],DX	; Save next move pointer
 	JMP	UNMOVE		; Restore board to previous ply
 
-;***********************************************************
+
+
+;**********************************************************
 ; ONE MOVE BOOK OPENING
-; **********************************************************
+;*********************************************************
 ; FUNCTION:   --  To provide an opening book of a single
 ;                 move.
 ;
@@ -2001,6 +2075,8 @@ BM5:	ADD	B,[BX],6	; Increment to black moves
 	JZ	RET		; Yes - return (P-K4)
 BM9:	ADD	B,[BX],3	; (P-Q4)
 	RET			; Return to CPTRMV
+
+
 
 ;***********************************************************
 ; COMPUTER MOVE ROUTINE
@@ -2057,12 +2133,14 @@ CP24:	MOV	AL,[SCORE+1]	; Check again for mates
 	CALL	FCDMAT		; Full checkmate ?
 	RET			; Return
 
+
+
 ;***********************************************************
 ; FORCED MATE HANDLING
 ;***********************************************************
 ; FUNCTION:   --  To examine situations where there exits
 ;                 a forced mate and determine whether or
-;                 not the current move is checkmate. If it is,
+;                 not the current move is checkmate.  If it is,
 ;                 a losing player is offered another game,
 ;                 while a loss for the computer signals the
 ;                 King to tip over in resignation.
@@ -2104,9 +2182,11 @@ FM08:	POP	BX		; Remove return addresses
 	CALL	SYSTEM
 	JMP	DRIVER		; Jump (Rest of game init)
 
+
+
 ;***********************************************************
 ; BOARD INDEX TO ASCII SQUARE NAME
-;***********************************************************
+;************************************************************
 ; FUNCTION:   --  To translate a hexadecimal index in the
 ;                 board array into an ascii description
 ;                 of the square in algebraic chess notation.
@@ -2117,7 +2197,7 @@ FM08:	POP	BX		; Remove return addresses
 ;
 ; ARGUMENTS:  --  Board index input in register DH and the
 ;                 Ascii square name is output in register BX.
-;***********************************************************
+;************************************************************
 BITASN:	SUB	AL,AL		; Get ready for division
 	MOV	DL,10
 	CALL	DIVIDE		; Divide
@@ -2128,6 +2208,8 @@ BITASN:	SUB	AL,AL		; Get ready for division
 	ADD	AL,30H		; Convert rank to Ascii (1-8)
 	MOV	BH,AL		; Save
 	RET			; Return
+
+
 
 ;***********************************************************
 ; PLAYERS MOVE ANALYSIS
@@ -2142,7 +2224,7 @@ BITASN:	SUB	AL,AL		; Get ready for division
 ;                 VALMOV
 ;
 ; ARGUMENTS:  --  None
-;***********************************************************
+;************************************************************
 PLYRMV:	MOV	DX,BUFFER	; Ask for input
 	MOV	CL,INBUF
 	CALL	SYSTEM
@@ -2178,9 +2260,11 @@ PL08:	MOV	DX,INVAL	; Output "INVALID MOVE--TRY AGAIN"
 	CALL	SYSTEM
 	JP	PLYRMV		; Jump
 
-;***********************************************************
+
+
+;************************************************************
 ; ASCII SQUARE NAME TO BOARD INDEX
-;***********************************************************
+;************************************************************
 ; FUNCTION:   --  To convert an algebraic square name in
 ;                 Ascii to a hexadecimal board index.
 ;                 This routine also checks the input for
@@ -2193,7 +2277,7 @@ PL08:	MOV	DX,INVAL	; Output "INVALID MOVE--TRY AGAIN"
 ; ARGUMENTS:  --  Accepts the square name in pointer BX
 ;                 and outputs the board index in register AL.
 ;                 CF = 0 if ok. CF = 1 if invalid.
-;***********************************************************
+;************************************************************
 ATBINX:	INC	BX		; Increment pointer to skip a char
 ASNTBI:	MOV	AL,[BX]		; Ascii file letter (a - h)
 	INC	BX
@@ -2219,6 +2303,8 @@ ASNTBI:	MOV	AL,[BX]		; Ascii file letter (a - h)
 	ADD	AL,21
 	RET			; Return
 
+
+
 ;***********************************************************
 ; VALIDATE MOVE SUBROUTINE
 ;***********************************************************
@@ -2233,7 +2319,7 @@ ASNTBI:	MOV	AL,[BX]		; Ascii file letter (a - h)
 ;
 ; ARGUMENTS:  --  Returns flag in register AL, 0 for valid
 ;                 and 1 for invalid move.
-;***********************************************************
+;************************************************************
 VALMOV:	MOV	BX,[MLPTRJ]	; Save last move pointer
 	PUSH	BX		; Save register
 	MOV	AL,[KOLOR]	; Computers color
@@ -2272,9 +2358,11 @@ VA10:	MOV	AL,1		; Set flag for invalid move
 	MOV	[MLPTRJ],BX	; Save move pointer
 	RET			; Return
 
-;***********************************************************
+
+
+;************************************************************
 ; POSITIVE INTEGER DIVISION
-;***********************************************************
+;************************************************************
 DIVIDE:	PUSH	CX
 	MOV	CH,8
 DD04:	SAL	DH
@@ -2289,6 +2377,11 @@ DD06:	DEC	CH
 	POP	CX
 	RET
 
+
+
+;*******************************************************
+; STANDARD MESSAGES
+;*******************************************************
 CLRMSG:	DB	13,10,"Choose your color (W/B): $"
 PLYDEP:	DB	13,10,"Ply depth (1-6): $"
 MVEMSG:	DB	"     ",13,10,"$"
@@ -2305,4 +2398,4 @@ IY:	DS	2
 BC:	DS	2
 DE:	DS	2
 HL:	DS	2
-
+
